@@ -1,0 +1,26 @@
+{
+  "spreadsheet_id": "1qrOo0UCkwjf_GqGEWJAZmwlTNc4G-VpQ6GRx8nMAPnI",
+  "spreadsheet_title": "Vocabulary",
+  "spreadsheet_url": "https://docs.google.com/spreadsheets/d/1qrOo0UCkwjf_GqGEWJAZmwlTNc4G-VpQ6GRx8nMAPnI/edit",
+  "sheets_dir": "sheets",
+  "sheet_map": {
+    "Template": "Template.csv",
+    "Comprehensible Input": "Comprehensible Input.csv",
+    "Adjective Practice": "Adjective Practice.csv",
+    "Adjective": "Adjective.csv",
+    "Phrasal Verb": "Phrasal Verb.csv",
+    "Mechanics": "Mechanics.csv",
+    "Human Body": "Human Body.csv",
+    "Books": "Books.csv",
+    "IELTS Reading": "IELTS Reading.csv",
+    "IELTS Process": "IELTS Process.csv",
+    "IELTS Map ": "IELTS Map.csv",
+    "IELTS Writing Task 2": "IELTS Writing Task 2.csv",
+    "IELTS Listening": "IELTS Listening.csv",
+    "Collocations": "Collocations.csv",
+    "Core Vocabulary": "Core Vocabulary.csv",
+    "Idioms": "Idioms.csv",
+    "Phrasal Verbs Library": "Phrasal Verbs Library.csv",
+    "Prepositions": "Prepositions.csv"
+  }
+}

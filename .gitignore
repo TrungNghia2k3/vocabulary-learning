@@ -1,0 +1,25 @@
+# Dependencies & build output
+web-app/node_modules/
+web-app/dist/
+web-app/.vite/
+*.tsbuildinfo
+
+# Local sync runtime state (keeps commits focused on sheets/*.csv)
+.sync/state.json
+.sync/_batch_tmp.json
+.sync/conflicts.json
+
+# Legacy example folder (data already migrated into sheets/)
+vocabulary_learning_web_example/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Python / OS / Editor
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+Thumbs.db
