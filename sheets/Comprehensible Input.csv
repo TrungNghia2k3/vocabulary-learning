@@ -1,7 +1,7 @@
-﻿,,,,,,
-,,,,,,
-,,,,,,
-,,,,,,
+﻿,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
 Link ảnh,Hình ảnh thực tế,Từ vựng & Phiên âm,Nghĩa & Phân biệt nhanh,Cụm động từ (Collocations),Ví dụ thực tế,Mẹo nhớ / Âm thanh,Chủ đề,Nhóm con
 https://vegsoc.org/app/uploads/2024/07/shutterstock_2315756181.jpg,"=ARRAYFORMULA(IF(A6:A="""", """", IMAGE(A6:A, 2)))",Salt /sɔːlt/,"Muối. Dùng chung cho mọi loại muối ăn (table salt, sea salt).","1. a pinch of salt: một nhúm muối
 2. season with salt: nêm với muối
@@ -431,3 +431,425 @@ https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/Aluminio.jpg/960px-Alu
 3. cover with foil: phủ giấy bạc lên trên","1. Wrap the potatoes in aluminum foil before baking them in the oven.
 2. Line the air fryer basket with foil for easier cleanup after roasting.
 3. Cover the roast turkey loosely with foil so the top doesn't burn.",Mỹ đọc /əˈluː.mɪ.nəm/ (4 âm tiết); Foil đọc là /fɔɪl/ ('phoi-ồ').,Kitchen Appliances,Cleaning & Storage
+,,,,,,,,
+https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Wikipedia_homepage_on_a_large_Android_phone%2C_2015-04-16.jpg/960px-Wikipedia_homepage_on_a_large_Android_phone%2C_2015-04-16.jpg,,Smartphone /ˈsmɑːtfəʊn/,Điện thoại thông minh. Có màn hình cảm ứng và kết nối internet; khác với feature phone (điện thoại phổ thông phím bấm).,"1. unlock a smartphone: mở khóa điện thoại
+2. scroll on a smartphone: lướt điện thoại
+3. smartphone addiction: nghiện điện thoại thông minh","1. Use Face ID or your passcode to unlock a smartphone.
+2. Many people scroll on a smartphone before going to sleep.
+3. Limiting screen time helps prevent smartphone addiction.",Smart (thông minh) + phone (điện thoại). Âm /əʊ/ trong phone đọc tròn môi 'phôun'.,Tech Gadgets,Personal & Portable Devices
+https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Laptop_collage.jpg/960px-Laptop_collage.jpg,,Laptop /ˈlæptɒp/,Máy tính xách tay. Phân biệt: laptop (nói chung) vs notebook / ultrabook (mỏng nhẹ).,"1. open a laptop: mở máy tính xách tay
+2. carry a laptop: mang theo laptop
+3. laptop battery life: thời lượng pin laptop","1. Open your laptop and join the online meeting.
+2. I always carry a laptop in my backpack when traveling for work.
+3. This model is famous for its long laptop battery life.",Lap (đùi) + top (trên) -> máy đặt trên đùi. Âm /æ/ mở miệng rộng 'láp-tóp'.,Tech Gadgets,Personal & Portable Devices
+https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/RGB_desktop_computer_setup_with_keyboard_and_monitor.jpg/960px-RGB_desktop_computer_setup_with_keyboard_and_monitor.jpg,,Desktop computer / PC /ˈdesktɒp kəmpjuːtə(r)/,"Máy tính để bàn. PC (Personal Computer) thường dùng chỉ máy tính cá nhân chạy Windows, phân biệt với Mac.","1. set up a desktop computer: lắp đặt máy tính bàn
+2. upgrade a PC: nâng cấp PC
+3. sit at a desktop: ngồi làm việc trước máy tính bàn","1. It took an hour to set up a desktop computer with dual monitors.
+2. Gamers often upgrade a PC for better graphics performance.
+3. She prefers to sit at a desktop when editing long videos.",Desk (bàn) + top (mặt trên) -> máy đặt trên mặt bàn.,Tech Gadgets,Personal & Portable Devices
+https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/12.9_iPad_Pro_1st_Gen_And_Galaxy_Tab_S8_Ultra_Size_Comparison.jpg/960px-12.9_iPad_Pro_1st_Gen_And_Galaxy_Tab_S8_Ultra_Size_Comparison.jpg,,Tablet /ˈtæblət/,"Máy tính bảng (như iPad). Kích thước lớn hơn smartphone nhưng nhỏ hơn laptop, dùng cảm ứng.","1. tap on a tablet: chạm vào màn hình máy tính bảng
+2. draw on a tablet: vẽ trên máy tính bảng
+3. tablet stand: giá đỡ máy tính bảng","1. Tap on a tablet screen to open the digital textbook.
+2. Designers use a stylus to draw on a tablet.
+3. Put the device on a tablet stand while watching movies.","Nhấn âm 1 /ˈtæb/, đọc gọn 2 âm tiết 'táb-lợt' (tránh đọc thành 'táp-lét').",Tech Gadgets,Personal & Portable Devices
+https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Samsung_Galaxy_Watch.jpg/960px-Samsung_Galaxy_Watch.jpg,,Smartwatch /ˈsmɑːtwɒtʃ/,"Đồng hồ thông minh. Theo dõi sức khỏe, nhịp tim và nhận thông báo từ điện thoại.","1. wear a smartwatch: đeo đồng hồ thông minh
+2. sync a smartwatch: đồng bộ đồng hồ thông minh
+3. track steps on a smartwatch: đếm bước chân trên đồng hồ","1. I wear a smartwatch every day to monitor my heart rate.
+2. Sync your smartwatch with your phone to receive message alerts.
+3. You can easily track steps on a smartwatch during your morning run.",Smart (thông minh) + watch (đồng hồ đeo tay). Âm cuối /tʃ/ bật hơi rõ.,Tech Gadgets,Personal & Portable Devices
+https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Amazon_Kindle_3.JPG/960px-Amazon_Kindle_3.JPG,,E-reader /ˈiː riːdə(r)/,Máy đọc sách điện tử (như Kindle). Dùng màn hình mực điện tử (e-ink) không gây mỏi mắt như tablet.,"1. download books to an e-reader: tải sách vào máy đọc sách
+2. read on an e-reader: đọc trên máy đọc sách
+3. glare-free e-reader: máy đọc sách chống chói","1. You can download hundreds of books to an e-reader in seconds.
+2. I prefer to read on an e-reader at night because it doesn't hurt my eyes.
+3. A glare-free e-reader is perfect for reading at the beach.",E- là viết tắt của Electronic (điện tử) + reader (máy đọc).,Tech Gadgets,Personal & Portable Devices
+https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Nintendo-DS-Lite-Black-Open.png/960px-Nintendo-DS-Lite-Black-Open.png,,Handheld game console /ˌhændheld ˈɡeɪm kɒnsəʊl/,"Máy chơi game cầm tay (như Nintendo Switch, Steam Deck). Khác với home console (máy cắm TV như PS5).","1. play on a handheld console: chơi trên máy cầm tay
+2. charge a game console: sạc máy chơi game
+3. portable game console: máy chơi game di động","1. He likes to play on a handheld game console during long flights.
+2. Don't forget to charge your game console before the trip.
+3. A portable game console lets you enjoy games anywhere.",Handheld (cầm tay) + console (máy chơi game). Console nhấn âm 1 /ˈkɒnsəʊl/.,Tech Gadgets,Personal & Portable Devices
+https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Computer_monitor_samsung.jpg/960px-Computer_monitor_samsung.jpg,,Monitor /ˈmɒnɪtə(r)/,Màn hình máy tính (rời). Phân biệt: monitor (màn hình máy tính) vs screen (màn hình nói chung) vs TV.,"1. connect a monitor: kết nối màn hình
+2. dual monitors: hai màn hình
+3. adjust monitor brightness: chỉnh độ sáng màn hình","1. Connect a monitor to your laptop using an HDMI cable.
+2. Working with dual monitors boosts productivity significantly.
+3. Adjust monitor brightness to match the lighting in your room.","Nhấn âm 1 /ˈmɒn/, đọc là 'mo-ni-tơ'. Còn có nghĩa động từ là 'giám sát'.",Tech Gadgets,Peripherals & Input/Output
+https://upload.wikimedia.org/wikipedia/commons/d/df/Mechanical_keyboard_example.jpg,,Keyboard /ˈkiːbɔːd/,Bàn phím. Phân biệt: mechanical keyboard (bàn phím cơ) vs wireless keyboard (bàn phím không dây).,"1. type on a keyboard: gõ trên bàn phím
+2. keyboard shortcut: phím tắt
+3. mechanical keyboard: bàn phím cơ","1. She can type on a keyboard at over 80 words per minute.
+2. Learning keyboard shortcuts saves a lot of time.
+3. Many programmers love the tactile feel of a mechanical keyboard.",Key (phím) + board (bảng) -> bảng các phím = bàn phím.,Tech Gadgets,Peripherals & Input/Output
+https://upload.wikimedia.org/wikipedia/commons/2/22/3-Tasten-Maus_Microsoft.jpg,,Mouse /maʊs/,Chuột máy tính. Số nhiều khi chỉ chuột máy tính có thể dùng 'mice' hoặc 'mouses' (mice phổ biến hơn).,"1. click the mouse: nhấp chuột
+2. scroll with a mouse: cuộn bằng chuột
+3. wireless mouse: chuột không dây","1. Double-click the mouse to open the folder.
+2. Scroll down with a mouse to read the rest of the article.
+3. A wireless mouse keeps your desk neat and clutter-free.","Âm /aʊ/ ('mao-s'), có âm /s/ nhẹ ở cuối.",Tech Gadgets,Peripherals & Input/Output
+https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/ASUS_ROG_Strix_G15_%28G513QY-HQ012T%29-top_keyboard_touchpad_PNr%C2%B00889.jpg/960px-ASUS_ROG_Strix_G15_%28G513QY-HQ012T%29-top_keyboard_touchpad_PNr%C2%B00889.jpg,,Touchpad / Trackpad /ˈtʌtʃpæd/ (/ˈtrækpæd/),Bàn di chuột (trên laptop). Touchpad là tên gọi chung; Trackpad thường dùng cho MacBook hoặc bàn di rời.,"1. tap the touchpad: chạm nhẹ bàn di chuột
+2. disable the touchpad: tắt bàn di chuột
+3. multi-touch trackpad: bàn di chuột đa điểm","1. Tap the touchpad with two fingers to right-click.
+2. Some gamers disable the touchpad when using an external mouse.
+3. MacBooks are well known for their smooth multi-touch trackpad.",Touch (chạm) / Track (lần theo) + pad (tấm đệm).,Tech Gadgets,Peripherals & Input/Output
+https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Logicool_StreamCam_%28cropped%29.jpg/960px-Logicool_StreamCam_%28cropped%29.jpg,,Webcam /ˈwebkæm/,"Máy quay gắn máy tính (dùng họp trực tuyến, gọi video). Tích hợp sẵn trên laptop hoặc gắn rời.","1. turn on the webcam: bật webcam
+2. look into the webcam: nhìn vào webcam
+3. cover the webcam: che webcam","1. Please turn on your webcam during the online interview.
+2. Look into the webcam when speaking so it feels like eye contact.
+3. Many people cover the webcam for extra privacy.",Web (mạng) + cam (viết tắt của camera) -> 'wéb-cam'.,Tech Gadgets,Peripherals & Input/Output
+https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/AMD_Ryzen_9_7900X.jpg/960px-AMD_Ryzen_9_7900X.jpg,,CPU / Processor /ˌsiː.piːˈjuː/ (/ˈprəʊsesə(r)/),Bộ vi xử lý trung tâm ('bộ não' của máy tính). CPU viết tắt của Central Processing Unit.,"1. upgrade the CPU: nâng cấp CPU
+2. quad-core processor: bộ xử lý 4 nhân
+3. CPU overheating: CPU bị quá nhiệt","1. You may need to upgrade the CPU to run heavy video editing software.
+2. This laptop runs on a fast quad-core processor.
+3. Dust buildup can cause CPU overheating.",CPU đọc từng chữ cái C-P-U. Processor nhấn âm 1 /ˈprəʊ/ (Anh) hoặc /ˈprɑː/ (Mỹ).,Tech Gadgets,Internal Components & Storage
+https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Swissbit_2GB_PC2-5300U-555.jpg/960px-Swissbit_2GB_PC2-5300U-555.jpg,,RAM (Memory) /ræm/ (/ˈmeməri/),Bộ nhớ tạm thời (Random Access Memory). Lưu dữ liệu đang chạy; phân biệt với Storage (ổ cứng lưu lâu dài).,"1. add more RAM: lắp thêm RAM
+2. run out of RAM: hết bộ nhớ RAM
+3. 16GB of RAM: 16GB RAM","1. Adding more RAM helps your computer handle multiple tabs smoothly.
+2. Your system may freeze if you run out of RAM.
+3. Modern laptops usually come with at least 16GB of RAM.","RAM đọc như chữ 'ram' (âm /æ/), nhấn gọn; Memory nhấn âm 1 /ˈmem/.",Tech Gadgets,Internal Components & Storage
+https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Palit_GeForce_RTX_5090_Gamerock_20250530_HOF4166_RAW-Export.png/960px-Palit_GeForce_RTX_5090_Gamerock_20250530_HOF4166_RAW-Export.png,,Graphics card / GPU /ˈɡræfɪks kɑːd/ (/ˌdʒiː.piːˈjuː/),"Card đồ họa. Xử lý hình ảnh, game 3D và AI. GPU viết tắt của Graphics Processing Unit.","1. dedicated graphics card: card đồ họa rời
+2. integrated GPU: card đồ họa tích hợp
+3. update graphics drivers: cập nhật driver card đồ họa","1. A dedicated graphics card is essential for 3D rendering and gaming.
+2. An integrated GPU is enough for basic office work.
+3. Remember to update graphics drivers for better performance.",Graphics (đồ họa) + card (thẻ/bảng mạch). GPU đọc từng chữ G-P-U.,Tech Gadgets,Internal Components & Storage
+https://upload.wikimedia.org/wikipedia/commons/8/87/ASRock_G31M-S_Micro-ATX_Motherboard.jpg,,Motherboard /ˈmʌðəbɔːd/,"Bo mạch chủ. Bảng mạch chính kết nối CPU, RAM, ổ cứng và các linh kiện khác với nhau.","1. install on the motherboard: lắp lên bo mạch chủ
+2. compatible motherboard: bo mạch chủ tương thích
+3. replace a motherboard: thay bo mạch chủ","1. Carefully install the RAM sticks onto the motherboard.
+2. Make sure you buy a compatible motherboard for your new CPU.
+3. It is often expensive to replace a damaged motherboard.",Mother (mẹ/chính) + board (bảng mạch) -> 'bo mạch mẹ' = bo mạch chủ.,Tech Gadgets,Internal Components & Storage
+https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/ST3320620AS.jpg/960px-ST3320620AS.jpg,,Hard drive (HDD) /ˈhɑːd draɪv/,"Ổ cứng cơ học (Hard Disk Drive). Dung lượng lớn, giá rẻ nhưng chậm và dễ hỏng khi va đập hơn SSD.","1. store on a hard drive: lưu trên ổ cứng
+2. back up a hard drive: sao lưu ổ cứng
+3. hard drive failure: hỏng ổ cứng","1. I store all my old family photos on a large hard drive.
+2. Always back up your hard drive to avoid losing important data.
+3. A clicking sound often warns of an upcoming hard drive failure.",Hard (cứng) + drive (ổ đĩa). HDD đọc từng chữ H-D-D.,Tech Gadgets,Internal Components & Storage
+https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/NVMe_SSd.jpg/960px-NVMe_SSd.jpg,,Solid-state drive (SSD) /ˌsɒlɪd ˈsteɪt draɪv/,Ổ cứng thể rắn. Dùng chip nhớ flash nên tốc độ đọc/ghi nhanh gấp nhiều lần HDD và không gây tiếng ồn.,"1. boot from an SSD: khởi động từ ổ SSD
+2. upgrade to an SSD: nâng cấp lên ổ SSD
+3. NVMe SSD: ổ SSD chuẩn NVMe siêu nhanh","1. Windows takes only seconds to boot from an SSD.
+2. Upgrading from an HDD to an SSD makes an old laptop feel brand new.
+3. Video editors prefer an NVMe SSD for transferring large files.","Solid-state (trạng thái rắn, không có đĩa quay cơ học). SSD đọc từng chữ S-S-D.",Tech Gadgets,Internal Components & Storage
+https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/SanDisk_Extreme_Portable_SSD_-_1TB%2C_USB-C_%2841036158305%29.jpg/960px-SanDisk_Extreme_Portable_SSD_-_1TB%2C_USB-C_%2841036158305%29.jpg,,External hard drive /ɪkˈstɜːnl ˈhɑːd draɪv/,Ổ cứng di động (gắn ngoài qua cổng USB). Dùng để sao lưu dữ liệu hoặc mang theo dung lượng lớn.,"1. plug in an external hard drive: cắm ổ cứng di động
+2. transfer files to an external drive: chép file sang ổ cứng ngoài
+3. eject safely: ngắt kết nối an toàn","1. Plug in an external hard drive to copy the movie files.
+2. She transfers large video projects to an external drive every week.
+3. Always eject the external hard drive safely before unplugging it.",External (bên ngoài) >< Internal (bên trong). External nhấn âm 2 /ˈstɜː/.,Tech Gadgets,Internal Components & Storage
+https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/SanDisk-Cruzer-USB-4GB-ThumbDrive.jpg/960px-SanDisk-Cruzer-USB-4GB-ThumbDrive.jpg,,USB flash drive / Thumb drive /ˌjuː.esˈbiː ˈflæʃ draɪv/ (/ˈθʌm draɪv/),USB lưu trữ dữ liệu nhỏ gọn. Thumb drive nghĩa đen là ổ nhỏ bằng ngón tay cái.,"1. save to a USB flash drive: lưu vào USB
+2. insert a USB drive: cắm USB vào
+3. bootable USB drive: USB cài đặt hệ điều hành","1. Save your presentation to a USB flash drive as a backup.
+2. Insert the USB drive into the port on the side of your laptop.
+3. You can use a bootable USB drive to reinstall Windows.",Thumb (ngón cái) vì kích thước nhỏ như ngón tay cái.,Tech Gadgets,Internal Components & Storage
+https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/80mm_fan.jpg/960px-80mm_fan.jpg,,Cooling fan / Heatsink /ˈkuːlɪŋ fæn/ (/ˈhiːtsɪŋk/),Quạt tản nhiệt / Bộ tản nhiệt. Cooling fan là quạt thổi gió; heatsink là khối kim loại dẫn nhiệt.,"1. clean the cooling fan: vệ sinh quạt tản nhiệt
+2. noisy cooling fan: quạt tản nhiệt kêu to
+3. attach a heatsink: gắn tản nhiệt","1. Clean the cooling fan regularly to prevent your laptop from overheating.
+2. A noisy cooling fan means the PC is working very hard.
+3. Apply thermal paste before attaching a heatsink to the CPU.",Cooling (làm mát) + fan (quạt); Heat (nhiệt) + sink (hấp thụ/thoát).,Tech Gadgets,Internal Components & Storage
+https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/S%C5%82uchawki_referencyjne_K-701_firmy_AKG.jpg/960px-S%C5%82uchawki_referencyjne_K-701_firmy_AKG.jpg,,Headphones /ˈhedfəʊnz/,Tai nghe chụp đầu (không kèm micro hoặc micro không phải điểm chính). Luôn dùng ở dạng số nhiều.,"1. put on headphones: đeo tai nghe
+2. noise-canceling headphones: tai nghe chống ồn
+3. plug in headphones: cắm tai nghe","1. Put on your headphones if you want to listen to music quietly.
+2. Noise-canceling headphones are a lifesaver on noisy airplanes.
+3. Most modern phones require an adapter to plug in wired headphones.",Head (đầu) + phones (âm thanh). Luôn có 's' ở cuối: headphones.,Tech Gadgets,Audio Devices
+https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Plantronics_headset.jpg/960px-Plantronics_headset.jpg,,Headset /ˈhedset/,"Tai nghe có kèm micro (thường dùng chơi game, gọi tổng đài hoặc học online). Phân biệt với headphones (chỉ nghe).","1. gaming headset: tai nghe chơi game
+2. mute the headset mic: tắt mic tai nghe
+3. wear a headset: đeo tai nghe có mic","1. He bought a wireless gaming headset with surround sound.
+2. Don't forget to mute your headset mic when you're not speaking.
+3. Call center agents wear a headset all day.",Head (đầu) + set (bộ gồm tai nghe + micro).,Tech Gadgets,Audio Devices
+https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/AirPods_%28cropped%29.jpg/960px-AirPods_%28cropped%29.jpg,,Earbuds /ˈɪəbʌdz/ (Earphones),"Tai nghe nhét tai nhỏ gọn (như AirPods). Earbuds nhét vào vành tai/ống tai, nhỏ hơn headphones chụp đầu.","1. wireless earbuds: tai nghe nhét tai không dây
+2. put earbuds in: đeo tai nghe nhét tai
+3. charging case for earbuds: hộp sạc tai nghe","1. Wireless earbuds are great for jogging because they don't tangle.
+2. She put her earbuds in to block out the subway noise.
+3. Put your earbuds back in the charging case when not in use.",Ear (tai) + buds (nụ/nút nhỏ) -> nút tai nghe nhỏ gọn.,Tech Gadgets,Audio Devices
+https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/JBL_Flip_3_bluetooth_speaker_%28DSCF2653%29.jpg/960px-JBL_Flip_3_bluetooth_speaker_%28DSCF2653%29.jpg,,Speaker /ˈspiːkə(r)/,Loa phát âm thanh. Phân biệt: Bluetooth speaker (loa Bluetooth) vs built-in speaker (loa tích hợp).,"1. turn up the speaker: vặn to loa
+2. pair a Bluetooth speaker: kết nối loa Bluetooth
+3. portable speaker: loa di động","1. Turn up the speaker so everyone in the room can hear.
+2. Pair your phone with the Bluetooth speaker to play music.
+3. We brought a portable speaker to the picnic.",Speak (nói) + er -> thiết bị phát tiếng nói/âm thanh.,Tech Gadgets,Audio Devices
+https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Shure_mikrofon_55S.jpg/960px-Shure_mikrofon_55S.jpg,,Microphone / Mic /ˈmaɪkrəfəʊn/,Micrô (thiết bị thu âm). Thường gọi tắt là mic /maɪk/.,"1. speak into the microphone: nói vào mic
+2. mute the mic: tắt tiếng mic
+3. condenser microphone: mic thu âm chuyên dụng","1. Please speak clearly into the microphone during the recording.
+2. Remember to mute your mic when entering a large Zoom call.
+3. Podcasters often use a condenser microphone for crisp audio.","Micro (nhỏ) + phone (âm thanh). Mic đọc là /maɪk/ ('mai-k'), không đọc là 'mích'.",Tech Gadgets,Audio Devices
+https://upload.wikimedia.org/wikipedia/commons/9/99/Canon_PowerShot_A95_-_front_and_back.jpg,,Digital camera /ˈdɪdʒɪtl ˈkæmrə/,Máy ảnh kỹ thuật số. Lưu ảnh vào thẻ nhớ; phân biệt với film camera (máy ảnh phim).,"1. take photos with a digital camera: chụp ảnh bằng máy ảnh số
+2. zoom in: phóng to
+3. change the camera lens: thay ống kính máy ảnh","1. Professional photographers still prefer a digital camera over a phone.
+2. You can zoom in on distant subjects without losing quality.
+3. She bought a wide-angle lens for her digital camera.",Camera đọc 2 hoặc 3 âm tiết: /ˈkæm.rə/ ('kem-rờ').,Tech Gadgets,"Visual, Camera & Entertainment"
+https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Quadcopter_camera_drone_in_flight.jpg/960px-Quadcopter_camera_drone_in_flight.jpg,,Drone /drəʊn/,Thiết bị bay không người lái (flycam). Dùng để quay phim từ trên cao hoặc giao hàng.,"1. fly a drone: điều khiển drone
+2. aerial drone footage: cảnh quay từ drone
+3. no-fly zone for drones: vùng cấm bay drone","1. You need a license to fly a drone in some city centers.
+2. The travel vlog featured breathtaking aerial drone footage.
+3. Always check for no-fly zones before launching your drone.","Âm /əʊ/ tròn môi ('đrôun'), nghĩa gốc là tiếng vo ve của ong đực.",Tech Gadgets,"Visual, Camera & Entertainment"
+https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Projektor_PGD2870W_firmy_Sharp.jpg/960px-Projektor_PGD2870W_firmy_Sharp.jpg,,Projector /prəˈdʒektə(r)/,Máy chiếu. Chiếu hình ảnh từ máy tính lên màn chiếu hoặc tường lớn.,"1. hook up a projector: kết nối máy chiếu
+2. project onto a screen: chiếu lên màn hình
+3. projector bulb: bóng đèn máy chiếu","1. Let's hook up the projector before the meeting starts.
+2. The teacher projected the slides onto a large white screen.
+3. Modern LED projectors last longer than old projector bulbs.","Nhấn âm 2 /ˈdʒek/, đọc là 'prơ-jék-tơ'.",Tech Gadgets,"Visual, Camera & Entertainment"
+https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/LG_smart_TV.jpg/960px-LG_smart_TV.jpg,,Smart TV /smɑːt ˌtiː ˈviː/,"Tivi thông minh. Kết nối Wi-Fi, cài được ứng dụng xem phim như YouTube, Netflix.","1. stream on a smart TV: xem trực tuyến trên smart TV
+2. connect a smart TV to Wi-Fi: kết nối smart TV với Wi-Fi
+3. smart TV remote: điều khiển smart TV","1. We love to stream movies on our smart TV on Friday nights.
+2. Connect your smart TV to Wi-Fi to update its apps.
+3. You can use a phone app if you lose the smart TV remote.",TV nhấn âm ở chữ V (/ˌtiː ˈviː/).,Tech Gadgets,"Visual, Camera & Entertainment"
+https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/D-Link_DI-524.jpg/960px-D-Link_DI-524.jpg,,Router /ˈruːtə(r)/,Bộ định tuyến (cục phát Wi-Fi). Chia sẻ mạng internet đến các thiết bị trong nhà; phân biệt với modem.,"1. restart the router: khởi động lại cục Wi-Fi
+2. Wi-Fi router: bộ phát Wi-Fi
+3. place the router centrally: đặt router ở vị trí trung tâm","1. Try restarting the router if your internet connection drops.
+2. A dual-band Wi-Fi router provides faster speeds.
+3. Place the router in an open, central area for better signal.","Anh đọc là /ˈruːtə/ ('ru-tơ'), Mỹ đọc là /ˈraʊtər/ ('rao-tơ').",Tech Gadgets,Networking
+https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Optimum_branded_cable_modem_and_cable_box.jpg/960px-Optimum_branded_cable_modem_and_cable_box.jpg,,Modem /ˈməʊdem/,Thiết bị giải điều chế tín hiệu mạng từ nhà mạng (ISP) thành tín hiệu internet. Thường nối với router.,"1. reset the modem: đặt lại modem
+2. fiber-optic modem: modem cáp quang
+3. blinking modem lights: đèn modem nhấp nháy","1. Unplug and reset the modem for 30 seconds to fix connection issues.
+2. The technician installed a new fiber-optic modem.
+3. Check the blinking modem lights to see if the signal is active.",Modem = MOdulator + DEModulator. Nhấn âm 1 /ˈməʊ/ ('môu-đem').,Tech Gadgets,Networking
+https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/USB_power_adapter_for_Apple_iPod%2C_Model_A1205%2C_by_Foxlink_Technology_Ltd-1048.jpg/960px-USB_power_adapter_for_Apple_iPod%2C_Model_A1205%2C_by_Foxlink_Technology_Ltd-1048.jpg,,Charger /ˈtʃɑːdʒə(r)/,Củ sạc / Bộ sạc. Phân biệt: charger (củ sạc/bộ sạc) vs charging cable (dây cáp sạc).,"1. plug in a charger: cắm sạc
+2. fast charger: sạc nhanh
+3. wireless charger: sạc không dây","1. Plug in your charger before the battery dies.
+2. A fast charger can boost your phone to 50% in 20 minutes.
+3. Just place your phone on the wireless charger pad.","Charge (sạc) + er -> 'chác-jơ', âm /tʃ/ bật hơi rõ.",Tech Gadgets,"Power, Cables & Accessories"
+https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/USB-C_plug%2C_focus_stacked.jpg/960px-USB-C_plug%2C_focus_stacked.jpg,,Charging cable /ˈtʃɑːdʒɪŋ keɪbl/,"Dây cáp sạc (như USB-C, Lightning). Nối giữa củ sạc/máy tính và thiết bị.","1. frayed charging cable: dây sạc bị sờn/đứt
+2. braided charging cable: dây sạc bọc dù
+3. untangle a cable: gỡ rối dây cáp","1. Replace a frayed charging cable immediately for safety.
+2. A braided charging cable is much more durable than a plastic one.
+3. Keep your cables organized with ties so you don't have to untangle them.","Cable đọc là /ˈkeɪbl/ ('kây-bồ'), không đọc là 'cáp-lơ'.",Tech Gadgets,"Power, Cables & Accessories"
+https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Powerbank_integrated_charging_controller_with_LEDs_and_heat_sink_%28Selectec_HYT-Q3%29.jpg/960px-Powerbank_integrated_charging_controller_with_LEDs_and_heat_sink_%28Selectec_HYT-Q3%29.jpg,,Power bank /ˈpaʊə bæŋk/,Sạc dự phòng. Pin lưu trữ di động dùng sạc điện thoại khi không có ổ điện.,"1. carry a power bank: mang theo sạc dự phòng
+2. charge via a power bank: sạc qua sạc dự phòng
+3. high-capacity power bank: sạc dự phòng dung lượng lớn","1. Always carry a power bank when traveling or camping.
+2. You can charge two devices at once via a power bank.
+3. Check airline rules before packing a high-capacity power bank.",Power (năng lượng/điện) + bank (ngân hàng/kho dự trữ) -> kho điện di động.,Tech Gadgets,"Power, Cables & Accessories"
+https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Thunderbolt_ethernet_adapter.jpg/960px-Thunderbolt_ethernet_adapter.jpg,,Adapter /əˈdæptə(r)/ (Dongle /ˈdɒŋɡl/),Bộ chuyển đổi (đầu chuyển cổng hoặc nguồn). Dongle thường chỉ đầu chuyển nhỏ cắm trực tiếp vào cổng.,"1. power adapter: bộ chuyển nguồn
+2. USB-C to HDMI adapter: đầu chuyển USB-C sang HDMI
+3. travel adapter: phích cắm chuyển đổi du lịch","1. Use the original power adapter that came with your laptop.
+2. You'll need a USB-C to HDMI dongle to connect to the TV.
+3. Pack a universal travel adapter when going abroad.",Adapter nhấn âm 2 /ˈdæp/; Dongle đọc là 'đong-gồ'.,Tech Gadgets,"Power, Cables & Accessories"
+https://upload.wikimedia.org/wikipedia/commons/4/46/USB_hub.jpg,,USB hub / Docking station /ˌjuː.esˈbiː hʌb/ (/ˈdɒkɪŋ ˌsteɪʃn/),"Bộ chia cổng USB / Trạm kết nối mở rộng. Docking station thường có cả nguồn, cổng mạng, màn hình.","1. plug into a USB hub: cắm vào bộ chia USB
+2. expand ports: mở rộng cổng kết nối
+3. laptop docking station: trạm kết nối cho laptop","1. Plug your mouse and keyboard into a USB hub to save laptop ports.
+2. A docking station helps expand ports for multiple monitors and Ethernet.
+3. Just connect one cable to your laptop docking station at your desk.",Hub (trung tâm kết nối); Docking station (trạm neo/kết nối).,Tech Gadgets,"Power, Cables & Accessories"
+https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Tricklestar_Plug_Strip.jpg/960px-Tricklestar_Plug_Strip.jpg,,Surge protector / Power strip /ˈsɜːdʒ prəˌtektə(r)/ (/ˈpaʊə strɪp/),Ổ cắm điện chống sốc điện / Ổ cắm kéo dài nhiều lỗ. Surge protector có mạch bảo vệ khi điện áp tăng đột ngột.,"1. plug into a surge protector: cắm vào ổ chống sét/sốc điện
+2. overload a power strip: làm quá tải ổ cắm
+3. switch off the power strip: tắt công tắc ổ cắm","1. Plug expensive electronics like PCs into a surge protector.
+2. Never overload a power strip with high-wattage heaters.
+3. Switch off the power strip at night to save standby power.",Surge (tăng vọt) + protector (bộ bảo vệ); Power strip (dải ổ cắm).,Tech Gadgets,"Power, Cables & Accessories"
+https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Size_comparison_of_SD_card%2C_microSD_card%2C_and_dime.jpg/960px-Size_comparison_of_SD_card%2C_microSD_card%2C_and_dime.jpg,,Memory card / SD card /ˈmeməri kɑːd/ (/ˌesˈdiː kɑːd/),"Thẻ nhớ (SD hoặc microSD). Dùng mở rộng dung lượng cho máy ảnh, drone, điện thoại.","1. insert a memory card: lắp thẻ nhớ
+2. format an SD card: định dạng lại thẻ nhớ
+3. memory card reader: đầu đọc thẻ nhớ","1. Insert a memory card into the camera before shooting.
+2. Back up your photos before you format an SD card.
+3. Use a memory card reader to transfer photos to your laptop quickly.",SD viết tắt của Secure Digital. Card có âm /d/ cuối nhẹ.,Tech Gadgets,"Power, Cables & Accessories"
+https://upload.wikimedia.org/wikipedia/commons/7/72/HP_Laserjet_5_DN_1.jpg,,Printer /ˈprɪntə(r)/,Máy in. Phân biệt: inkjet printer (máy in phun) vs laser printer (máy in laser).,"1. print a document: in tài liệu
+2. paper jam: kẹt giấy
+3. replace ink cartridges: thay hộp mực","1. Send the file to the office printer to print the document.
+2. Open the back cover carefully to clear a paper jam.
+3. The printer alert says it's time to replace the ink cartridges.",Print (in) + er -> máy in. Nhấn âm 1 /ˈprɪn/.,Tech Gadgets,Office Equipment
+https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Epson_V850_scanner_open_20230920.jpg/960px-Epson_V850_scanner_open_20230920.jpg,,Scanner /ˈskænə(r)/,"Máy quét tài liệu/hình ảnh thành file kỹ thuật số (PDF, JPEG).","1. scan a document: quét tài liệu
+2. flatbed scanner: máy quét mặt phẳng
+3. scan to PDF: quét thành file PDF","1. Use the scanner to digitize your signed contract.
+2. Place the photo face down on the flatbed scanner.
+3. You can scan to PDF and email the file directly.","Scan (quét) + er -> 'sken-nơ', âm /æ/ mở miệng.",Tech Gadgets,Office Equipment
+https://upload.wikimedia.org/wikipedia/commons/6/6e/Google_Home_sitting_on_table.jpg,,Smart speaker /smɑːt ˈspiːkə(r)/,"Loa thông minh (có trợ lý ảo như Alexa, Google Assistant). Điều khiển bằng giọng nói.","1. give a voice command: ra lệnh bằng giọng nói
+2. ask a smart speaker: hỏi loa thông minh
+3. control smart home devices: điều khiển thiết bị nhà thông minh","1. Give a voice command to set a 10-minute cooking timer.
+2. You can ask a smart speaker about the weather forecast.
+3. Use your smart speaker to control lights and music hands-free.",Smart (thông minh) + speaker (loa).,Tech Gadgets,Smart Home & Security
+https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Nest_Yale_%28cropped%29.jpg/960px-Nest_Yale_%28cropped%29.jpg,,Smart lock /smɑːt lɒk/,"Khóa cửa thông minh. Mở bằng vân tay, mã PIN, thẻ từ hoặc điện thoại thay vì chìa cơ.","1. unlock via fingerprint: mở khóa bằng vân tay
+2. keyless entry: vào nhà không cần chìa
+3. set a temporary passcode: cài mật mã tạm thời","1. A smart lock lets you unlock the front door via fingerprint.
+2. Keyless entry is convenient when your hands are full of groceries.
+3. You can set a temporary passcode for houseguests.","Lock đọc là /lɒk/ ('lóc'), phân biệt với look (/lʊk/).",Tech Gadgets,Smart Home & Security
+https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Three_Surveillance_cameras.jpg/960px-Three_Surveillance_cameras.jpg,,Security camera / CCTV /sɪˈkjʊərəti ˈkæmrə/ (/ˌsiː.siː.tiːˈviː/),Camera an ninh / Camera giám sát. CCTV là viết tắt của Closed-Circuit Television.,"1. install a security camera: lắp camera an ninh
+2. motion detection: phát hiện chuyển động
+3. review CCTV footage: xem lại băng ghi hình CCTV","1. They installed a security camera above the front porch.
+2. The camera sends a phone alert thanks to motion detection.
+3. Police reviewed the CCTV footage to identify the suspect.",Security nhấn âm 2 /ˈkjʊə/. CCTV đọc từng chữ C-C-T-V.,Tech Gadgets,Smart Home & Security
+https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Reinigungsroboter_tcm_100.JPG/960px-Reinigungsroboter_tcm_100.JPG,,Robot vacuum /ˈrəʊbɒt ˈvækjuːm/,Robot hút bụi tự động. Tự di chuyển quanh nhà để hút bụi và tự quay về trạm sạc.,"1. schedule a robot vacuum: hẹn giờ robot hút bụi
+2. empty the dustbin: đổ hộp bụi
+3. return to the charging dock: tự về trạm sạc","1. Schedule your robot vacuum to clean while you are at work.
+2. Remember to empty the dustbin every few days.
+3. When the battery is low, it automatically returns to the charging dock.","Vacuum đọc là /ˈvækjuːm/ ('véc-kium'), nhấn âm 1.",Tech Gadgets,Smart Home & Security
+https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/TP-Link-Kasa-Amazon-Alexa-Zubeh%C3%B6r-Smart-Home-WLAN-Steckdose-HS110.jpg/960px-TP-Link-Kasa-Amazon-Alexa-Zubeh%C3%B6r-Smart-Home-WLAN-Steckdose-HS110.jpg,,Smart plug /smɑːt plʌɡ/,Ổ cắm thông minh. Cắm vào ổ điện thường để bật/tắt thiết bị từ xa qua điện thoại hoặc hẹn giờ.,"1. control via an app: điều khiển qua ứng dụng
+2. schedule a smart plug: hẹn giờ ổ cắm thông minh
+3. monitor energy usage: theo dõi điện năng tiêu thụ","1. Turn off your fan from anywhere by controlling the smart plug via an app.
+2. Schedule a smart plug to turn on the living room lamp at sunset.
+3. Some smart plugs help you monitor energy usage in real time.","Plug âm /ʌ/ ('plắc'), có âm /ɡ/ cuối.",Tech Gadgets,Smart Home & Security
+,,,,,,,,
+https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Typical_Street_In_The_Royal_Borough_Of_Kensington_And_Chelsea_In_London.jpg/960px-Typical_Street_In_The_Royal_Borough_Of_Kensington_And_Chelsea_In_London.jpg,,Street /striːt/,"Đường phố (trong khu dân cư/đô thị, thường có nhà cửa, cửa hàng hai bên). Phân biệt với road (đường nối các nơi nói chung).","1. cross the street: băng qua đường
+2. down the street: dọc theo con phố
+3. one-way street: đường một chiều","1. Look both ways before you cross the street.
+2. There is a great coffee shop just down the street.
+3. You cannot turn left here because it is a one-way street.","Âm /iː/ kéo dài ('strít'), chú ý cụm phụ âm đầu /str/.",Road features / street elements,Types of Roads & Walkways
+https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Erlangen_Bundesautobahn_73_Auffahrt_Luftbild-20230422-RM-165734.jpg/960px-Erlangen_Bundesautobahn_73_Auffahrt_Luftbild-20230422-RM-165734.jpg,,Road /rəʊd/,"Con đường (nói chung, nối giữa các địa điểm, thành phố hoặc vùng quê). Dùng rộng hơn street.","1. hit the road: lên đường
+2. country road: đường quê
+3. on the road: đang trên đường đi","1. Let's pack up and hit the road early tomorrow morning.
+2. We drove along a quiet country road surrounded by farms.
+3. He spends most of the week on the road as a delivery driver.","Âm /əʊ/ tròn môi ('rôu-đ'), âm cuối /d/ nhẹ.",Road features / street elements,Types of Roads & Walkways
+https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/%22_12_-_ITALY_-_Venaria_Reale_-_vialealberato_in_autunno_-_Autumn_%28_fall_%29_boulevard_%28_avenue_of_trees_%29_Turin.JPG/960px-%22_12_-_ITALY_-_Venaria_Reale_-_vialealberato_in_autunno_-_Autumn_%28_fall_%29_boulevard_%28_avenue_of_trees_%29_Turin.JPG,,Avenue /ˈævənjuː/ (Boulevard /ˈbuːləvɑːd/),"Đại lộ. Avenue là đường lớn thường có hàng cây hai bên; Boulevard là đại lộ rất rộng, thường có dải phân cách cây xanh ở giữa.","1. tree-lined avenue: đại lộ rợp bóng cây
+2. wide boulevard: đại lộ rộng lớn
+3. main avenue: đại lộ chính","1. We strolled down a charming tree-lined avenue in Paris.
+2. The parade marched along the wide boulevard.
+3. Most luxury shops are located on the city's main avenue.",Avenue nhấn âm 1 /ˈæv/; Boulevard nhấn âm 1 /ˈbuː/ ('bu-lơ-vát').,Road features / street elements,Types of Roads & Walkways
+https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Street%2C_Oguz_%28P1090484%29.jpg/960px-Street%2C_Oguz_%28P1090484%29.jpg,,Highway /ˈhaɪweɪ/,"Đường cao tốc / Quốc lộ (kiểu Mỹ/Úc). Đường lớn nối các thành phố, cho phép chạy tốc độ cao.","1. get on the highway: lên đường cao tốc
+2. highway exit: lối ra cao tốc
+3. interstate highway: đường cao tốc liên bang","1. Take this ramp to get on the highway toward the airport.
+2. Take the next highway exit to reach the downtown area.
+3. An interstate highway connects major cities across different states.",High (cao) + way (đường) -> đường cao tốc.,Road features / street elements,Types of Roads & Walkways
+https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/US_131%2C_M-6%2C_68th_St_interchange.jpg/960px-US_131%2C_M-6%2C_68th_St_interchange.jpg,,Motorway /ˈməʊtəweɪ/,"Đường cao tốc (kiểu Anh). Tương đương với Highway / Freeway ở Mỹ, có nhiều làn xe và không có giao cắt đồng mức.","1. join the motorway: nhập làn vào cao tốc
+2. motorway service station: trạm dừng nghỉ cao tốc
+3. M1 motorway: đường cao tốc M1","1. Accelerate smoothly when you join the motorway.
+2. We stopped at a motorway service station for coffee and fuel.
+3. There are heavy delays on the M1 motorway this morning.",Motor (động cơ/xe cơ giới) + way (đường) -> đường dành cho xe cơ giới chạy nhanh.,Road features / street elements,Types of Roads & Walkways
+https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Streets_of_Sanaa%2C_Yemen_%2810732822016%29.jpg/960px-Streets_of_Sanaa%2C_Yemen_%2810732822016%29.jpg,,Alley /ˈæli/ (Lane /leɪn/),Ngõ / Hẻm nhỏ (giữa các tòa nhà). Alley thường chỉ hẻm nhỏ ở đô thị; Lane còn chỉ ngõ quê hoặc làn đường.,"1. narrow alley: con hẻm hẹp
+2. back alley: ngõ sau
+3. blind alley: ngõ cụt","1. The hidden café is tucked away in a narrow alley.
+2. Avoid walking alone through a dark back alley at night.
+3. We took a wrong turn and ended up in a blind alley.","Alley nhấn âm 1 /ˈæli/ ('e-li'), không nhầm với ally (/ˈælaɪ/ - đồng minh).",Road features / street elements,Types of Roads & Walkways
+https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Photo_of_a_sunwalk_in_the_street_Ruysdaelkade%2C_De_Pijp_in_Amsterdam_city_with_facade_gardens_in_Spring_2015_by_Fons_Heijnsbroek._People_are_walking_over_the_sidewalk_pavement_-_free_download_photo_in_high_resolution%2C_The_Netherlands.jpg/960px-thumbnail.jpg,,Sidewalk /ˈsaɪdwɔːk/ (Pavement /ˈpeɪvmənt/),"Vỉa hè (lối đi bộ lát gạch/bê tông hai bên đường). Mỹ dùng Sidewalk, Anh dùng Pavement.","1. walk on the sidewalk: đi trên vỉa hè
+2. crowded sidewalk: vỉa hè đông đúc
+3. sidewalk café: quán cà phê vỉa hè","1. Cyclists shouldn't ride fast where people walk on the sidewalk.
+2. It's hard to push a stroller along a crowded sidewalk.
+3. Let's grab a coffee at that cozy sidewalk café.",Side (bên cạnh) + walk (đi bộ) -> lối đi bộ bên cạnh đường.,Road features / street elements,Types of Roads & Walkways
+https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Abbey_Road_Zebra.jpg/960px-Abbey_Road_Zebra.jpg,,Crosswalk /ˈkrɒswɔːk/ (Zebra crossing / Pedestrian crossing),Vạch sang đường cho người đi bộ. Mỹ gọi Crosswalk; Anh gọi Zebra crossing (vạch ngựa vằn) hoặc Pedestrian crossing.,"1. use the crosswalk: đi qua vạch sang đường
+2. stop at the crosswalk: dừng lại ở vạch sang đường
+3. painted crosswalk: vạch sang đường kẻ sơn","1. Always use the crosswalk instead of jaywalking across busy roads.
+2. Drivers must stop at the crosswalk when pedestrians are waiting.
+3. The city repainted the crosswalks near the elementary school.",Cross (băng qua) + walk (đi bộ) -> lối đi bộ băng qua đường.,Road features / street elements,Types of Roads & Walkways
+https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/I-73_at_I-840_Overpasses_Aerial_-_Facing_South_%2850698132631%29.jpg/960px-I-73_at_I-840_Overpasses_Aerial_-_Facing_South_%2850698132631%29.jpg,,Overpass /ˈəʊvəpɑːs/,Cầu vượt (dành cho xe cộ hoặc người đi bộ bắc qua một con đường/đường sắt khác). Tương đương Flyover (Anh).,"1. pedestrian overpass: cầu vượt đi bộ
+2. highway overpass: cầu vượt cao tốc
+3. cross the overpass: đi qua cầu vượt","1. Use the pedestrian overpass to safely cross the eight-lane highway.
+2. Traffic backed up near the new highway overpass.
+3. Go straight and cross the overpass to get to the train station.",Over (bên trên) + pass (đi qua) -> đường đi qua bên trên = cầu vượt.,Road features / street elements,Junctions & Crossings
+https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/I-73_at_I-840_Overpasses_Aerial_-_Facing_South_%2850698132631%29.jpg/960px-I-73_at_I-840_Overpasses_Aerial_-_Facing_South_%2850698132631%29.jpg,,Overpass /ˈəʊvəpɑːs/,Cầu vượt (mục lặp lại từ dòng 152 — cũng có thể dùng 'Flyover' trong tiếng Anh-Anh hoặc 'Pedestrian bridge' cho cầu đi bộ).,"1. build an overpass: xây cầu vượt
+2. under the overpass: dưới gầm cầu vượt
+3. flyover bridge: cầu vượt (tiếng Anh-Anh)","1. The city plans to build an overpass to ease congestion at this junction.
+2. Parking is not allowed under the overpass.
+3. Take the flyover bridge to bypass the roundabout.",Nhấn âm 1 /ˈəʊvə/ ('ôu-vơ-pát').,Road features / street elements,Junctions & Crossings
+https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/SZ_Shenzhen_Futian_Hongling_Middle_Road_Pedestrian_Underpass_Tunnel_Shennan_Middle_Road_March_2025_R12S_01.jpg/960px-SZ_Shenzhen_Futian_Hongling_Middle_Road_Pedestrian_Underpass_Tunnel_Shennan_Middle_Road_March_2025_R12S_01.jpg,,Underpass /ˈʌndəpɑːs/,Hầm chui (đường đi bộ hoặc xe cộ chạy bên dưới một con đường/đường ray khác). Anh còn gọi Subway (lối đi bộ ngầm).,"1. pedestrian underpass: hầm chui đi bộ
+2. go through the underpass: đi qua hầm chui
+3. flooded underpass: hầm chui bị ngập","1. Take the pedestrian underpass to reach the opposite side of the square.
+2. Buses go through the underpass to avoid the intersection lights.
+3. The underpass was closed after heavy rain flooded it.",Under (bên dưới) + pass (đi qua) >< Overpass (bên trên).,Road features / street elements,Junctions & Crossings
+https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Cul-de-sac_1.jpg/960px-Cul-de-sac_1.jpg,,Dead end /ˌded ˈend/,Đường cụt (con đường không có lối thông ra). Cũng hay dùng biển báo 'No Through Road' hoặc 'Cul-de-sac'.,"1. hit a dead end: đi vào đường cụt / gặp bế tắc
+2. dead-end street: con phố cụt
+3. turn around at a dead end: quay đầu ở đường cụt","1. We drove for ten minutes only to hit a dead end.
+2. Living on a dead-end street is quiet because there is no through traffic.
+3. The truck had to reverse carefully to turn around at the dead end.",Dead (chết/tịt) + end (điểm cuối) -> điểm cuối bị bịt kín = đường cụt.,Road features / street elements,Junctions & Crossings
+https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/%D0%9F%D0%BB%D0%BE%D1%89%D0%B0%D0%B4%D1%8C_%D0%A2%D0%B2%D0%B5%D1%80%D1%81%D0%BA%D0%B0%D1%8F_%D0%97%D0%B0%D1%81%D1%82%D0%B0%D0%B2%D0%B0_%28%D0%B2%D0%B8%D0%B4_%D1%81%D0%B2%D0%B5%D1%80%D1%85%D1%83%29.jpg/960px-%D0%9F%D0%BB%D0%BE%D1%89%D0%B0%D0%B4%D1%8C_%D0%A2%D0%B2%D0%B5%D1%80%D1%81%D0%BA%D0%B0%D1%8F_%D0%97%D0%B0%D1%81%D1%82%D0%B0%D0%B2%D0%B0_%28%D0%B2%D0%B8%D0%B4_%D1%81%D0%B2%D0%B5%D1%80%D1%85%D1%83%29.jpg,,Intersection /ˌɪntəˈsekʃn/ (Crossroads / Junction),Ngã tư / Giao lộ. Mỹ hay dùng Intersection; Anh hay dùng Crossroads (ngã tư) hoặc Junction (giao lộ nói chung).,"1. busy intersection: ngã tư đông đúc
+2. at the intersection: tại giao lộ
+3. signalized intersection: ngã tư có đèn tín hiệu","1. Be extra alert when turning left at a busy intersection.
+2. Turn right at the intersection just past the gas station.
+3. Installing traffic lights made the signalized intersection much safer.",Inter (giữa) + section (cắt nhau) -> nơi các đường cắt nhau. Nhấn âm 3 /ˈsek/.,Road features / street elements,Junctions & Crossings
+https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Mango_road_and_Horticulture_Department_intersection%2C_KNUST.jpg/960px-Mango_road_and_Horticulture_Department_intersection%2C_KNUST.jpg,,T-junction /ˈtiː dʒʌŋkʃn/,"Ngã ba (hình chữ T, nơi một con đường đâm vuông góc vào một con đường khác).","1. approach a T-junction: đi tới ngã ba
+2. give way at a T-junction: nhường đường ở ngã ba
+3. turn left at the T-junction: rẽ trái ở ngã ba","1. Slow down as you approach a T-junction with limited visibility.
+2. Vehicles on the minor road must give way at a T-junction.
+3. Keep going until you reach a T-junction, then turn left.",Chữ T (hình dáng ngã ba) + junction (giao lộ).,Road features / street elements,Junctions & Crossings
+https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Ren%27ai_Dunhua_traffic_circle_202006.jpg/960px-Ren%27ai_Dunhua_traffic_circle_202006.jpg,,Roundabout /ˈraʊndəbaʊt/,Bùng binh / Vòng xuyến. Xe chạy vòng quanh đảo giao thông ở giữa để chuyển hướng. Mỹ cũng gọi Traffic circle.,"1. enter a roundabout: đi vào vòng xuyến
+2. take the second exit: đi theo lối ra thứ hai
+3. go around the roundabout: đi vòng qua bùng binh","1. Yield to traffic already inside before you enter a roundabout.
+2. At the roundabout, take the second exit onto Main Street.
+3. If you miss your turn, just go around the roundabout again.",Round (tròn) + about (xung quanh) -> đi vòng tròn xung quanh = bùng binh.,Road features / street elements,Junctions & Crossings
+https://upload.wikimedia.org/wikipedia/commons/b/bd/Montague_Expressway.jpg,,Lane /leɪn/,Làn đường (phần đường kẻ vạch cho một hàng xe chạy). Ngoài ra còn có nghĩa là ngõ nhỏ ở vùng quê.,"1. change lanes: chuyển làn
+2. bike lane: làn xe đạp
+3. fast lane / passing lane: làn chạy nhanh / làn vượt","1. Always use your turn signal before you change lanes.
+2. Cars are not allowed to park or drive in the bike lane.
+3. Move back to the right after overtaking in the passing lane.","Âm /eɪ/ ('lên'), đọc gần giống 'lên' nhưng kéo dài nhẹ âm /n/.",Road features / street elements,Road Surface & Structure
+https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Kerbs_laid_by_Power_Curber.jpg/960px-Kerbs_laid_by_Power_Curber.jpg,,Curb /kɜːb/ (Kerb),"Bó vỉa (gờ đá/bê tông ngăn cách giữa lòng đường và vỉa hè). Mỹ viết Curb, Anh viết Kerb.","1. park along the curb: đỗ xe sát lề đường
+2. hit the curb: quẹt vào bó vỉa
+3. curb ramp: dốc lên xuống vỉa hè","1. Please pull over and park neatly along the curb.
+2. She accidentally hit the curb while parallel parking.
+3. Curb ramps make sidewalks accessible for wheelchairs and strollers.","Âm /ɜː/ ('cơb'), có âm /b/ nhẹ ở cuối.",Road features / street elements,Road Surface & Structure
+https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Divided_median_strip_on_a_highway_in_Huizhou.jpg/960px-Divided_median_strip_on_a_highway_in_Huizhou.jpg,,Median strip /ˈmiːdiən strɪp/ (Central reservation),Dải phân cách giữa hai chiều xe chạy. Mỹ gọi Median strip (hoặc median); Anh gọi Central reservation.,"1. grassy median strip: dải phân cách trồng cỏ
+2. cross the median: vượt qua dải phân cách
+3. concrete median: dải phân cách bê tông","1. Trees planted along the grassy median strip provide welcome shade.
+2. It is illegal and dangerous to make a U-turn across the median.
+3. A concrete median separates oncoming lanes on the expressway.",Median (ở giữa) + strip (dải hẹp) -> dải đất/bê tông ở giữa đường.,Road features / street elements,Road Surface & Structure
+https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/SpeedBump.JPG/960px-SpeedBump.JPG,,Speed bump /ˈspiːd bʌmp/,"Gờ giảm tốc (ụ nổi ngang đường buộc xe giảm tốc độ ở khu dân cư, trường học).","1. slow down for a speed bump: giảm tốc khi qua gờ giảm tốc
+2. hit a speed bump: đâm/nảy qua gờ giảm tốc
+3. install speed bumps: lắp đặt gờ giảm tốc","1. Slow down for the speed bump ahead so you don't scrape the car.
+2. He hit a speed bump too fast and spilled his coffee.
+3. Residents asked the council to install speed bumps on their street.",Speed (tốc độ) + bump (cú nảy/ụ nổi) -> ụ nổi hãm tốc độ.,Road features / street elements,Road Surface & Structure
+https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/Potholes_-_at_the_junction_of_Philip_Lane_N15_and_Mount_Pleasant_Road_N17.jpg/960px-Potholes_-_at_the_junction_of_Philip_Lane_N15_and_Mount_Pleasant_Road_N17.jpg,,Pothole /ˈpɒthəʊl/,"Ổ gà (hố lõm trên mặt đường do xuống cấp, xe cộ và mưa làm hư hỏng).","1. dodge a pothole: né ổ gà
+2. hit a pothole: sụp ổ gà
+3. fill in potholes: vá/lấp ổ gà","1. Cyclists have to swerve carefully to dodge a pothole.
+2. Hitting a deep pothole at high speed can damage your tire.
+3. Road crews were sent out to fill in potholes after the winter.",Pot (cái nồi) + hole (cái hố) -> hố sâu tròn như cái nồi = ổ gà.,Road features / street elements,Road Surface & Structure
+https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Modern_British_LED_Traffic_Light.jpg/960px-Modern_British_LED_Traffic_Light.jpg,,Traffic light /ˈtræfɪk laɪt/,Đèn giao thông (đèn xanh - vàng - đỏ). Cũng gọi là Traffic signal hoặc Stoplight (Mỹ).,"1. wait at a traffic light: đợi đèn đỏ/đèn giao thông
+2. run a red light: vượt đèn đỏ
+3. traffic light turns green: đèn chuyển xanh","1. We had to wait at three traffic lights in a row.
+2. Cameras automatically fine drivers who run a red light.
+3. Wait until the traffic light turns green before moving.",Traffic (giao thông) + light (đèn).,Road features / street elements,Street Furniture & Signals
+https://upload.wikimedia.org/wikipedia/commons/b/bd/Sturminster_Marshall%2C_new_signage_on_the_A350_-_geograph.org.uk_-_1741455.jpg,,Traffic sign /ˈtræfɪk saɪn/ (Road sign),"Biển báo giao thông (biển chỉ dẫn, cấm, cảnh báo trên đường).","1. obey traffic signs: tuân thủ biển báo giao thông
+2. stop sign: biển báo dừng lại
+3. speed limit sign: biển giới hạn tốc độ","1. All drivers must learn and obey traffic signs.
+2. Make a complete stop at the red octagonal stop sign.
+3. Check the speed limit sign when entering a school zone.","Sign đọc là /saɪn/ ('sai-n'), chữ 'g' bị câm (không đọc).",Road features / street elements,Street Furniture & Signals
+https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Paris%2C_Notre_Dame_--_2014_--_1479.jpg/960px-Paris%2C_Notre_Dame_--_2014_--_1479.jpg,,Streetlight /ˈstriːtlaɪt/,Đèn đường (cột đèn chiếu sáng dọc vỉa hè/đường phố vào ban đêm). Cũng gọi Street lamp.,"1. under a streetlight: dưới ánh đèn đường
+2. streetlights come on: đèn đường bật sáng
+3. broken streetlight: đèn đường bị hỏng","1. The parked car was clearly visible under a bright streetlight.
+2. Streetlights automatically come on at dusk.
+3. Please report any broken streetlight to keep the neighborhood safe.",Street (đường phố) + light (đèn) -> đèn đường.,Road features / street elements,Street Furniture & Signals
+https://upload.wikimedia.org/wikipedia/commons/2/2a/SIF-Overhead-Wires-1-Cropped.jpg,,Utility pole /juːˈtɪləti pəʊl/,"Cột điện / Cột tiện ích (cột gỗ hoặc bê tông mang dây điện, dây cáp viễn thông). Cũng gọi Power pole / Telephone pole.","1. wooden utility pole: cột điện bằng gỗ
+2. crash into a utility pole: đâm vào cột điện
+3. overhead power lines on poles: đường dây điện trên cột","1. Many rural towns still use wooden utility poles for electricity.
+2. A slippery road caused the car to crash into a utility pole.
+3. Storms can knock down utility poles and cut off power.","Utility (tiện ích công cộng: điện, nước, mạng) + pole (cột).",Road features / street elements,Street Furniture & Signals
+https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Open_Manhole_and_Cover_Mid-City_New_Orleans.jpg/960px-Open_Manhole_and_Cover_Mid-City_New_Orleans.jpg,,Manhole /ˈmænhəʊl/,Hố ga / Nắp cống (lỗ có nắp tròn bằng gang trên đường để công nhân chui xuống kiểm tra cống ngầm).,"1. manhole cover: nắp hố ga
+2. open a manhole: mở nắp hố ga
+3. step over a manhole: bước qua nắp hố ga","1. Heavy rain pushed the manhole cover slightly out of place.
+2. Maintenance workers placed cones around the open manhole.
+3. Be careful not to trip over a loose manhole cover.",Man (người) + hole (lỗ) -> lỗ đủ lớn cho người chui xuống bảo trì cống.,Road features / street elements,Street Furniture & Signals
+https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Rynsztok.jpg/960px-Rynsztok.jpg,,Storm drain /ˈstɔːm dreɪn/ (Gutter),Cống thoát nước mưa (miệng thu nước ven vỉa hè). Gutter là rãnh thoát nước dọc mép đường.,"1. clogged storm drain: cống thoát nước bị tắc
+2. clear leaves from the drain: dọn lá khỏi miệng cống
+3. flow into the storm drain: chảy xuống cống","1. A clogged storm drain caused water to pool at the corner.
+2. Volunteers helped clear fallen leaves from the storm drains.
+3. Rainwater flows along the gutter into the storm drain.",Storm (mưa bão) + drain (ống thoát nước) -> cống thoát nước mưa.,Road features / street elements,Street Furniture & Signals
+https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Downtown_Charlottesville_fire_hydrant.jpg/960px-Downtown_Charlottesville_fire_hydrant.jpg,,Fire hydrant /ˈfaɪə haɪdrənt/,Trụ cứu hỏa (trụ nước màu đỏ/vàng trên vỉa hè để xe cứu hỏa đấu vòi chữa cháy).,"1. park near a fire hydrant: đỗ xe gần trụ cứu hỏa
+2. connect a hose to a hydrant: nối vòi vào trụ cứu hỏa
+3. flush a fire hydrant: xả kiểm tra trụ cứu hỏa","1. You will get a ticket if you park within 15 feet of a fire hydrant.
+2. Firefighters quickly connected a hose to the nearest fire hydrant.
+3. City workers periodically flush fire hydrants to test water pressure.","Fire (lửa) + hydrant (trụ nước, gốc 'hydro' = nước).",Road features / street elements,Street Furniture & Signals
+https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/2009-07-26-berlin-by-RalfR-97.jpg/960px-2009-07-26-berlin-by-RalfR-97.jpg,,Guardrail /ˈɡɑːdreɪl/ (Crash barrier),Lan can bảo vệ / Rào chắn hộ lan (thanh kim loại dọc mép đường cao tốc/đèo dốc ngăn xe lao ra ngoài).,"1. metal guardrail: thanh hộ lan kim loại
+2. hit the guardrail: va vào lan can bảo vệ
+3. highway crash barrier: rào chắn đường cao tốc","1. A sturdy metal guardrail runs along the winding mountain road.
+2. The car skidded on ice and hit the guardrail.
+3. Highway crash barriers absorb impact and prevent severe accidents.",Guard (bảo vệ) + rail (thanh ray/lan can) -> thanh chắn bảo vệ.,Road features / street elements,Street Furniture & Signals
+https://upload.wikimedia.org/wikipedia/commons/6/6f/Parking_Meter_Front.JPG,,Parking meter /ˈpɑːkɪŋ miːtə(r)/,Đồng hồ thu phí đỗ xe (cột máy đặt bên lề đường để người lái trả tiền đỗ xe theo giờ).,"1. feed the parking meter: bỏ tiền vào máy thu phí đỗ xe
+2. expired parking meter: đồng hồ đỗ xe hết giờ
+3. pay at the meter: trả tiền tại trụ máy","1. Make sure you feed the parking meter so you don't get fined.
+2. A traffic warden left a ticket because of an expired parking meter.
+3. Nowadays you can pay at the meter by card or mobile app.",Parking (đỗ xe) + meter (đồng hồ đo/tính tiền).,Road features / street elements,Street Furniture & Signals
+https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/People_waiting_at_bus_stop.jpg/960px-People_waiting_at_bus_stop.jpg,,Bus stop /ˈbʌs stɒp/,Trạm dừng xe buýt (điểm đón trả khách có biển báo và thường có mái che).,"1. wait at the bus stop: đợi ở trạm xe buýt
+2. get off at the next bus stop: xuống ở trạm tiếp theo
+3. bus shelter: nhà chờ xe buýt","1. Dozens of commuters were waiting at the bus stop in the rain.
+2. Press the stop button before your bus stop.
+3. The new bus shelter has a digital display showing arrival times.",Bus (xe buýt) + stop (điểm dừng).,Road features / street elements,Street Furniture & Signals
+https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Pelican_hot_tubs_sale_billboard_reading_%E2%80%9CPelican_beat_the_tariffs%21%E2%80%9D.jpg/960px-Pelican_hot_tubs_sale_billboard_reading_%E2%80%9CPelican_beat_the_tariffs%21%E2%80%9D.jpg,,Billboard /ˈbɪlbɔːd/,Biển quảng cáo lớn ngoài trời (đặt dọc đường cao tốc hoặc trên các tòa nhà).,"1. roadside billboard: biển quảng cáo ven đường
+2. digital billboard: biển quảng cáo điện tử
+3. put up a billboard: dựng biển quảng cáo","1. A giant roadside billboard advertised the new smartphone.
+2. Bright digital billboards light up the city square at night.
+3. The company rented a billboard near the highway entrance.",Bill (tờ quảng cáo/áp phích) + board (tấm bảng) -> bảng quảng cáo lớn.,Road features / street elements,Street Furniture & Signals
+https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Waste_container_in_Japan.jpg/960px-Waste_container_in_Japan.jpg,,Trash can / Litter bin /ˈtræʃ kæn/ (/ˈlɪtə bɪn/),Thùng rác công cộng. Mỹ hay dùng Trash can / Garbage can; Anh hay dùng Litter bin / Rubbish bin.,"1. throw into the trash can: vứt vào thùng rác
+2. overflowing litter bin: thùng rác bị tràn
+3. recycling bin: thùng rác tái chế","1. Please throw your empty coffee cup into the trash can.
+2. The city empties overflowing litter bins every morning.
+3. Put plastic bottles in the blue recycling bin next to the trash can.",Trash / Litter (rác) + can / bin (thùng). Trash đọc âm /æ/ + /ʃ/.,Road features / street elements,Street Furniture & Signals
+https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/CrossWalk_%285465840138%29.jpg/960px-CrossWalk_%285465840138%29.jpg,,Pedestrian /pəˈdestriən/,"Người đi bộ (người di chuyển bằng chân trên đường phố, khác với người lái xe).","1. yield to pedestrians: nhường đường cho người đi bộ
+2. pedestrian zone: khu phố đi bộ
+3. pedestrian safety: an toàn cho người đi bộ","1. Drivers are legally required to yield to pedestrians at crosswalks.
+2. Cars are banned from the historic pedestrian zone on weekends.
+3. Better street lighting improves pedestrian safety at night.","Nhấn âm 2 /ˈdes/, gốc 'ped' liên quan đến chân (như pedal - bàn đạp).",Road features / street elements,Traffic & People
+https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Peking_Radfahrer-20071021-RM-090349.jpg/960px-Peking_Radfahrer-20071021-RM-090349.jpg,,Commuter /kəˈmjuːtə(r)/,"Người đi làm/đi học hằng ngày (thường di chuyển một quãng đường từ nhà đến nơi làm việc bằng xe buýt, tàu, ô tô).","1. daily commuter: người đi làm hằng ngày
+2. commuter train: tàu chở người đi làm
+3. morning commuters: dòng người đi làm buổi sáng","1. Daily commuters face heavy traffic on the bridge every morning.
+2. She reads the news on the commuter train into the city.
+3. Delays on the subway frustrated thousands of morning commuters.",Commute (đi lại giữa nhà và nơi làm) + er -> người đi làm hằng ngày. Nhấn âm 2 /ˈmjuː/.,Road features / street elements,Traffic & People
+https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/World_Class_Traffic_Jam_2_%287454479488%29.jpg/960px-World_Class_Traffic_Jam_2_%287454479488%29.jpg,,Traffic jam /ˈtræfɪk dʒæm/,Tắc đường / Kẹt xe. Cũng hay dùng Traffic congestion (trang trọng hơn) hoặc Gridlock (kẹt cứng hoàn toàn).,"1. stuck in a traffic jam: bị kẹt xe
+2. cause a traffic jam: gây tắc đường
+3. avoid traffic jams: tránh kẹt xe","1. I'm sorry I'm late; I was stuck in a terrible traffic jam.
+2. A minor fender bender caused a mile-long traffic jam.
+3. Leaving 20 minutes earlier helps you avoid morning traffic jams.",Jam (kẹt cứng/chen chúc) -> giao thông bị kẹt cứng.,Road features / street elements,Traffic & People
+https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Standing_on_the_Yellow_Platform_Line.jpg/960px-Standing_on_the_Yellow_Platform_Line.jpg,,Rush hour /ˈrʌʃ aʊə(r)/,Giờ cao điểm (khung giờ sáng và chiều tối khi mọi người đổ ra đường đi làm/tan tầm). Anh còn gọi Peak hour.,"1. morning rush hour: giờ cao điểm buổi sáng
+2. during rush hour: trong giờ cao điểm
+3. beat the rush hour: đi sớm để tránh giờ cao điểm","1. The subway is packed during the morning rush hour.
+2. Avoid driving through the city center during rush hour.
+3. We left the office at 4:30 PM to beat the rush hour.",Rush (vội vã) + hour (giờ) -> giờ mọi người vội vã đi lại = giờ cao điểm.,Road features / street elements,Traffic & People
+https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/CR106WestboundDetour1.jpg/960px-CR106WestboundDetour1.jpg,,Detour /ˈdiːtʊə(r)/,Đường vòng / Lối đi vòng (tuyến đường tạm thời khi đường chính bị chặn do sửa chữa hoặc tai nạn).,"1. take a detour: đi đường vòng
+2. follow the detour signs: đi theo biển chỉ dẫn đường vòng
+3. make a detour: rẽ sang đường vòng","1. Because of the marathon, buses had to take a detour.
+2. Follow the orange detour signs to get back onto the main road.
+3. We made a quick detour to pick up groceries on the way home.",Nhấn âm 1 /ˈdiː/ (Mỹ) hoặc âm 2 /ˈtʊə/ (Anh). Đọc là 'đi-tua'.,Road features / street elements,Traffic & People
+https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/Paving_in_Haikou_02.jpg/960px-Paving_in_Haikou_02.jpg,,Roadwork /ˈrəʊdwɜːk/,"Công trình sửa chữa đường bộ (Anh thường dùng số nhiều 'Roadworks', Mỹ dùng 'Road work' / 'Road construction').","1. roadwork ahead: phía trước có công trình sửa đường
+2. delayed by roadworks: bị chậm do sửa đường
+3. roadwork zone: khu vực đang thi công đường","1. A yellow sign warned drivers of roadwork ahead.
+2. Our bus was delayed by roadworks near the city center.
+3. Fines are doubled if you speed inside a roadwork zone.",Road (đường) + work (công việc/thi công) -> thi công sửa đường.,Road features / street elements,Traffic & People
