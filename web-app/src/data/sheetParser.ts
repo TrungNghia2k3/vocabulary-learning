@@ -191,6 +191,9 @@ function parseComprehensibleInput(
             meaning: colMeaning,
             example: exLines[idx] || exLines[0],
             sourceDeck: deck,
+            topic: topic || 'Chưa phân loại',
+            subtopic,
+            relatedWord: word,
           });
         }
       }
@@ -675,6 +678,9 @@ function parseIdioms(rows: string[][]): IdiomItem[] {
 
 function parseCollocations(rows: string[][]): CollocationItem[] {
   const out: CollocationItem[] = [];
+  const header = rows[0] || [];
+  const topicCol = header.findIndex((c) => /^(chủ đề|topic|category)/i.test(c));
+  const subtopicCol = header.findIndex((c) => /^(nhóm con|subtopic)/i.test(c));
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
     if (!r[1]) continue;
@@ -685,6 +691,8 @@ function parseCollocations(rows: string[][]): CollocationItem[] {
       example: r[3] || undefined,
       exampleTranslation: r[4] || undefined,
       sourceDeck: 'Collocations',
+      topic: (topicCol >= 0 ? r[topicCol] : '') || 'Collocations Cơ bản',
+      subtopic: subtopicCol >= 0 ? r[subtopicCol] || undefined : undefined,
     });
   }
   return out;

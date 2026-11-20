@@ -36,9 +36,37 @@ export function SpecialPracticeView({
 }: SpecialPracticeViewProps) {
   const [tab, setTab] = useState<'learn' | 'quiz'>('learn');
   const [search, setSearch] = useState('');
+  const [selectedColTopic, setSelectedColTopic] = useState<string>('ALL');
+  const [selectedColSubtopic, setSelectedColSubtopic] = useState<string>('ALL');
   const [quizIdx, setQuizIdx] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
   const [score, setScore] = useState(0);
+
+  const colTopics = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of collocations) {
+      counts.set(c.topic, (counts.get(c.topic) || 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([name, count]) => ({ name, count }));
+  }, [collocations]);
+
+  const colSubtopics = useMemo(() => {
+    if (selectedColTopic === 'ALL') return [];
+    const counts = new Map<string, number>();
+    for (const c of collocations) {
+      if (c.topic !== selectedColTopic || !c.subtopic) continue;
+      counts.set(c.subtopic, (counts.get(c.subtopic) || 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([name, count]) => ({ name, count }));
+  }, [collocations, selectedColTopic]);
+
+  const scopedCollocations = useMemo(() => {
+    return collocations.filter((c) => {
+      if (selectedColTopic !== 'ALL' && c.topic !== selectedColTopic) return false;
+      if (selectedColSubtopic !== 'ALL' && c.subtopic !== selectedColSubtopic) return false;
+      return true;
+    });
+  }, [collocations, selectedColTopic, selectedColSubtopic]);
 
   const titleMap = {
     prepositions: 'Giới từ (Prepositions)',
@@ -99,22 +127,26 @@ export function SpecialPracticeView({
       });
     }
 
-    // Collocations
-    const validCols = collocations.filter((c) => c.phrase && c.meaning);
-    return validCols.slice(0, 20).map((c) => {
-      const wrong = validCols
-        .filter((x) => x.id !== c.id)
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3)
-        .map((x) => x.meaning);
-      return {
-        prompt: c.phrase,
-        sub: c.example,
-        answer: c.meaning,
-        options: [c.meaning, ...wrong].sort(() => Math.random() - 0.5),
-      };
-    });
-  }, [kind, prepositions, phrasalVerbs, idioms, collocations]);
+    // Collocations (scoped to selected Topic / Subtopic)
+    const validCols = scopedCollocations.filter((c) => c.phrase && c.meaning);
+    const distractorPool = validCols.length >= 4 ? validCols : collocations.filter((c) => c.phrase && c.meaning);
+    return [...validCols]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 20)
+      .map((c) => {
+        const wrong = distractorPool
+          .filter((x) => x.id !== c.id)
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3)
+          .map((x) => x.meaning);
+        return {
+          prompt: c.phrase,
+          sub: c.example,
+          answer: c.meaning,
+          options: [c.meaning, ...wrong].sort(() => Math.random() - 0.5),
+        };
+      });
+  }, [kind, prepositions, phrasalVerbs, idioms, collocations, scopedCollocations]);
 
   const q = queryLower(search);
 
@@ -159,6 +191,91 @@ export function SpecialPracticeView({
           </button>
         </div>
       </div>
+
+      {/* Collocations Topic & Subtopic Selector (applies to both Learn & Quiz) */}
+      {kind === 'collocations' && colTopics.length > 0 && (
+        <div className="space-y-2.5 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+              Chủ đề:
+            </span>
+            <button
+              onClick={() => {
+                setSelectedColTopic('ALL');
+                setSelectedColSubtopic('ALL');
+                setQuizIdx(0);
+                setPicked(null);
+                setScore(0);
+              }}
+              className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                selectedColTopic === 'ALL'
+                  ? 'border-indigo-500 bg-indigo-600 text-white shadow-xs'
+                  : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
+              }`}
+            >
+              Tất cả ({collocations.length})
+            </button>
+            {colTopics.map((t) => (
+              <button
+                key={t.name}
+                onClick={() => {
+                  setSelectedColTopic(t.name);
+                  setSelectedColSubtopic('ALL');
+                  setQuizIdx(0);
+                  setPicked(null);
+                  setScore(0);
+                }}
+                className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                  selectedColTopic === t.name
+                    ? 'border-indigo-500 bg-indigo-600 text-white shadow-xs'
+                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                }`}
+              >
+                {t.name} ({t.count})
+              </button>
+            ))}
+          </div>
+
+          {colSubtopics.length > 1 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5 dark:border-slate-800">
+              <span className="text-xs font-semibold text-slate-400">Nhóm con:</span>
+              <button
+                onClick={() => {
+                  setSelectedColSubtopic('ALL');
+                  setQuizIdx(0);
+                  setPicked(null);
+                  setScore(0);
+                }}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                  selectedColSubtopic === 'ALL'
+                    ? 'bg-violet-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                }`}
+              >
+                Tất cả nhóm con
+              </button>
+              {colSubtopics.map((st) => (
+                <button
+                  key={st.name}
+                  onClick={() => {
+                    setSelectedColSubtopic(st.name);
+                    setQuizIdx(0);
+                    setPicked(null);
+                    setScore(0);
+                  }}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                    selectedColSubtopic === st.name
+                      ? 'bg-violet-600 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                >
+                  {st.name} ({st.count})
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {tab === 'learn' && (
         <>
@@ -386,49 +503,93 @@ export function SpecialPracticeView({
             </div>
           )}
 
-          {kind === 'collocations' && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {collocations
-                .filter(
-                  (c) =>
-                    !q ||
-                    c.phrase.toLowerCase().includes(q) ||
-                    c.meaning.toLowerCase().includes(q)
-                )
-                .map((c) => (
-                  <div
-                    key={c.id}
-                    className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="text-base font-bold text-indigo-700 dark:text-indigo-400">
-                        {c.phrase}
+          {kind === 'collocations' && (() => {
+            const filteredCols = scopedCollocations.filter(
+              (c) =>
+                !q ||
+                c.phrase.toLowerCase().includes(q) ||
+                c.meaning.toLowerCase().includes(q) ||
+                (c.relatedWord || '').toLowerCase().includes(q) ||
+                c.topic.toLowerCase().includes(q) ||
+                (c.subtopic || '').toLowerCase().includes(q)
+            );
+            const grouped = new Map<string, CollocationItem[]>();
+            for (const c of filteredCols) {
+              const groupKey =
+                selectedColTopic === 'ALL'
+                  ? c.topic
+                  : c.subtopic || c.topic;
+              const list = grouped.get(groupKey) || [];
+              list.push(c);
+              grouped.set(groupKey, list);
+            }
+            if (filteredCols.length === 0) {
+              return (
+                <div className="rounded-2xl border border-dashed border-slate-300 py-12 text-center text-sm text-slate-500 dark:border-slate-700">
+                  Không tìm thấy collocation phù hợp.
+                </div>
+              );
+            }
+            return (
+              <div className="space-y-6">
+                {Array.from(grouped.entries()).map(([groupTitle, list]) => (
+                  <div key={groupTitle} className="space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2 dark:border-slate-800">
+                      <h3 className="text-sm font-extrabold uppercase tracking-wide text-indigo-700 dark:text-indigo-400">
+                        {groupTitle}
                       </h3>
-                      <button
-                        onClick={() => speakText(c.phrase, accent)}
-                        className="rounded-lg p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950"
-                      >
-                        <Volume2 className="h-4 w-4" />
-                      </button>
+                      <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
+                        {list.length} cụm từ
+                      </span>
                     </div>
-                    <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                      {c.meaning}
-                    </p>
-                    {c.example && (
-                      <p className="mt-2 text-xs italic text-slate-500 dark:text-slate-400">
-                        “{c.example}”
-                      </p>
-                    )}
-                    {c.exampleTranslation && (
-                      <p className="mt-0.5 text-xs text-slate-400">{c.exampleTranslation}</p>
-                    )}
-                    <span className="mt-auto pt-3 text-[11px] text-slate-400">
-                      Nguồn: {c.sourceDeck}
-                    </span>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {list.map((c) => (
+                        <div
+                          key={c.id}
+                          className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="text-base font-bold text-indigo-700 dark:text-indigo-400">
+                              {c.phrase}
+                            </h4>
+                            <button
+                              onClick={() => speakText(c.phrase, accent)}
+                              className="rounded-lg p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950"
+                            >
+                              <Volume2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            {c.meaning}
+                          </p>
+                          {c.example && (
+                            <p className="mt-2 text-xs italic text-slate-500 dark:text-slate-400">
+                              “{c.example}”
+                            </p>
+                          )}
+                          {c.exampleTranslation && (
+                            <p className="mt-0.5 text-xs text-slate-400">{c.exampleTranslation}</p>
+                          )}
+                          <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-3 text-[11px]">
+                            {c.relatedWord && (
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                Từ gốc: {c.relatedWord}
+                              </span>
+                            )}
+                            {c.subtopic && selectedColTopic === 'ALL' && (
+                              <span className="rounded-full bg-violet-50 px-2 py-0.5 font-medium text-violet-700 dark:bg-violet-950/60 dark:text-violet-300">
+                                {c.subtopic}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
-            </div>
-          )}
+              </div>
+            );
+          })()}
         </>
       )}
 

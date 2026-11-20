@@ -107,6 +107,9 @@ export interface CollocationItem {
   example?: string;
   exampleTranslation?: string;
   sourceDeck: string;
+  topic: string;
+  subtopic?: string;
+  relatedWord?: string;
 }
 
 export interface DeckInfo {
