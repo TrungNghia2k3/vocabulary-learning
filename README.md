@@ -1,36 +1,93 @@
-# Đồng bộ 2 chiều Google Sheet `Vocabulary`
+# VocabStudio — Học Từ Vựng Tiếng Anh & Đồng Bộ 2 Chiều Google Sheets
 
-Thư mục này được thiết lập đồng bộ 2 chiều với Google Sheet **[Vocabulary](https://docs.google.com/spreadsheets/d/1qrOo0UCkwjf_GqGEWJAZmwlTNc4G-VpQ6GRx8nMAPnI/edit)** thông qua Antigravity.
+Dự án kết hợp **Google Sheets** (làm nơi quản lý từ vựng trực quan) với ứng dụng web **React + TypeScript + Vite + Tailwind CSS** (`web-app/`), đồng bộ 2 chiều qua `sync.py` và sẵn sàng Deploy trên **Vercel / Netlify**.
+
+- **Google Sheet nguồn:** [Vocabulary](https://docs.google.com/spreadsheets/d/1qrOo0UCkwjf_GqGEWJAZmwlTNc4G-VpQ6GRx8nMAPnI/edit)
+- **GitHub Repository:** https://github.com/TrungNghia2k3/vocabulary-learning
+
+---
 
 ## Cấu trúc thư mục
 
-- `sheets/*.csv` — Dữ liệu của từng tab trên Google Sheet (mã hóa `UTF-8 BOM` để mở bằng Excel hoặc VS Code đều hiển thị đúng tiếng Việt).
-- `sync.py` — Script đồng bộ 2 chiều theo **từng ô thay đổi (cell-level 3-way merge)**, giữ nguyên màu sắc, Tables, ô gộp và công thức (`=ARRAYFORMULA`, `=UPPER`...) trên Google Sheet.
+- `sheets/*.csv` — Dữ liệu của từng tab trên Google Sheet (`UTF-8 BOM`, mở bằng Excel hoặc VS Code đều hiển thị đúng tiếng Việt).
+- `web-app/` — Ứng dụng học từ vựng React đọc trực tiếp từ `sheets/*.csv` (tự động reload khi CSV thay đổi).
+- `sync.py` — Script đồng bộ 2 chiều theo **từng ô thay đổi (3-way merge)**, giữ nguyên màu sắc, Tables, ô gộp và công thức (`=ARRAYFORMULA`, `=UPPER`...) trên Google Sheet.
 - `.sync/config.json` — Ánh xạ tên tab Google Sheet ↔ tên file `.csv` cục bộ.
-- `.sync/state.json` — Bản chụp lần đồng bộ gần nhất dùng để phát hiện thay đổi từ cả 2 phía.
-- `web-app/` — Ứng dụng học từ vựng React + TypeScript + Vite + Tailwind CSS đọc trực tiếp từ `sheets/*.csv` (tự reload khi file CSV thay đổi).
+- `.sync/state.json` — Bản chụp lần đồng bộ gần nhất *(chỉ lưu cục bộ, đã loại trừ khỏi Git)*.
+- `vercel.json` / `netlify.toml` — Cấu hình Deploy tự động 1-click.
 
-## Chạy ứng dụng học từ vựng (React)
+---
+
+## Chạy ứng dụng trên máy (Local)
 
 ```powershell
 cd web-app
+npm install   # chỉ cần chạy lần đầu
 npm run dev
 ```
 
-Mở trình duyệt tại `http://localhost:5173`. Mỗi khi bạn sửa file trong `sheets/` hoặc chạy đồng bộ từ Google Sheet, ứng dụng sẽ tự động cập nhật dữ liệu mới.
+Mở trình duyệt tại `http://localhost:5173`. Mỗi khi bạn chỉnh sửa `sheets/*.csv` hoặc đồng bộ từ Google Sheet, web sẽ tự cập nhật ngay lập tức.
 
-## Cách sử dụng hằng ngày
+---
 
-Bạn chỉ cần chỉnh sửa trực tiếp các file trong thư mục `sheets/` (hoặc sửa trên Google Sheet Web), sau đó nhắn cho **Antigravity**:
+## Quy trình chuẩn khi thêm dữ liệu hoặc sheet mới
 
-- **"Kiểm tra thay đổi / status"** → chạy `python sync.py status` để xem trước ô nào đổi ở máy, ô nào đổi trên Web.
-- **"Đồng bộ 2 chiều / sync"** → chạy `python sync.py sync` để tự động cập nhật cả 2 chiều.
-- **"Tải mới toàn bộ từ Web / pull"** → chạy `python sync.py pull` để làm mới toàn bộ file local theo Google Sheet.
-- **Tự động đồng bộ định kỳ:** Dùng lệnh `/schedule` trong Antigravity để hẹn chạy `python sync.py sync` định kỳ (ví dụ mỗi 30 phút).
+### 1. Nguyên tắc chọn nguồn nhập liệu
+- **Thêm lẻ hằng ngày (5–20 từ):** Nhập trực tiếp trên **Google Sheet (Web)** để tiện xem ảnh, dùng Dropdown chọn chủ đề và nhập được cả trên điện thoại.
+- **Thêm hàng loạt / nhờ AI xử lý (tìm link ảnh, dịch nghĩa, tạo nhiều từ):** Nhờ **Antigravity** xử lý trên `sheets/*.csv` rồi đồng bộ ngược lên Google Sheet.
+- **Tránh:** Không sửa **cùng 1 ô** ở cả máy và Web trước khi sync.
 
-## Lưu ý bảo vệ dữ liệu
+### 2. Khi thêm từ vào sheet đã có sẵn
+- **Sheet `Comprehensible Input` (từ vựng kèm ảnh theo chủ đề):**
+  - Thêm ở dòng trống cuối bảng.
+  - Cột `A`: dán Link ảnh trực tiếp (`https://...`).
+  - Cột `B`: **để trống** *(ô `B6` đã có công thức `=ARRAYFORMULA(IF(A6:A="", "", IMAGE(A6:A, 2)))` tự động hiển thị ảnh cho toàn bộ cột B)*.
+  - Cột `C → G`: điền Từ vựng & Phiên âm, Nghĩa, Collocations, Ví dụ, Mẹo nhớ.
+  - Cột `H (Chủ đề)`: chọn từ Dropdown (`Seasoning`, `Kitchen Appliances`...) hoặc **gõ thẳng tên chủ đề mới** (`Bedroom`, `Office`, `Fruits`...).
+  - Cột `I (Nhóm con)`: phân nhóm chi tiết hơn (tùy chọn).
+- **Các sheet khác (`Core Vocabulary`, `Books`, `IELTS...`, `Idioms`, `Collocations`, `Prepositions`, `Phrasal Verbs Library`):**
+  - Thêm dòng mới ở cuối bảng theo đúng cột tiêu đề hiện có.
+  - Riêng `Core Vocabulary`:
+    - `Synonyms` / `Antonyms`: cách nhau bằng dấu `;` — ví dụ: `progress (sự tiến bộ); growth (tăng trưởng)`.
+    - `Word Family`: mỗi từ loại 1 dòng — ví dụ: `noun: advance (sự tiến bộ), advancement (sự tiến bộ)`.
 
-1. **Xung đột (Conflict):** Nếu cùng 1 ô bị sửa khác nhau ở cả máy lẫn Web trước khi sync, script sẽ **dừng lại và báo rõ ô nào bị trùng** để bạn chọn giữ bản ở máy (`--on-conflict local`) hay bản trên Web (`--on-conflict remote`).
-2. **Bảo vệ công thức:** Nếu bạn mở file CSV bằng Excel và Excel đổi một ô công thức Google Sheets (như `=ARRAYFORMULA(...)`) thành lỗi `#NAME?`, script sẽ tự động phát hiện và giữ nguyên công thức gốc trên Web.
-3. **Không tự động xóa tab:** Nếu bạn xóa nhầm 1 file `.csv` ở máy, script sẽ cảnh báo chứ không tự xóa tab trên Google Sheet.
-4. **Thêm tab mới:** Nếu bạn tạo một file `.csv` mới trong `sheets/` rồi chạy `sync`, tab mới tương ứng sẽ tự được tạo trên Google Sheet (và ngược lại, tạo tab mới trên Web sẽ tự sinh file `.csv` trong `sheets/`).
+### 3. Khi tạo một Sheet (Tab) mới hoàn toàn
+1. Bấm dấu **`+`** tạo tab mới trên Google Sheet.
+2. Đặt tên tab gọn gàng, **không có dấu cách thừa ở đầu/cuối**, không chứa các ký tự `/ \ : * ? " < > |`.
+3. Đặt dòng tiêu đề cột (nằm trong **10 dòng đầu**) theo quy chuẩn để App React **tự động đọc 100% không cần sửa code**:
+   - **2 cột bắt buộc:**
+     - `Word` *(hoặc `Phrase` / `Term` / `Từ vựng`)*
+     - `Meaning Vietnamese` *(hoặc `Meaning` / `Nghĩa`)*
+   - **Các cột tùy chọn (thêm cột nào app tự bật tính năng đó):**
+     - `Type` *(hoặc `Part of speech` / `Từ loại`)*
+     - `Example` *(hoặc `Sentence` / `Ví dụ`)*
+     - `Synonyms` / `Antonyms` *(ngăn cách bằng `,` hoặc `;` → tự dùng được trong Quiz Đồng/Trái nghĩa)*
+     - `Image` *(hoặc `Link ảnh` → tự hiện ảnh ở Duyệt từ & Flashcard)*
+     - `Cambridge` *(link từ điển Cambridge)*
+     - `Chủ đề` *(hoặc `Topic`)* & `Nhóm con` *(hoặc `Subtopic` → tự hiện thanh lọc theo Chủ đề)*
+
+> **3 điều cần tránh khi tạo sheet mới:**
+> - Không xếp nhiều bảng ngang song song trong cùng 1 sheet — chỉ dùng **1 bảng dọc duy nhất**.
+> - Không gộp ô (Merge cell) trong vùng dữ liệu.
+> - Không tự ý xóa hoặc đổi tên tab cũ mà không báo đồng bộ (vì `sync.py` chủ động **không tự xóa** để bảo vệ dữ liệu).
+
+### 4. Đồng bộ & Cập nhật lên Web Deploy (Vercel / Netlify)
+
+Sau khi thêm từ hoặc tạo tab mới trên Google Sheet, chỉ cần nhắn **Antigravity**:
+
+- **Kiểm tra thay đổi trước:** *"Kiểm tra thay đổi / status"* → chạy `python sync.py status`.
+- **Chỉ cập nhật về máy (`localhost`):** *"Đồng bộ 2 chiều với Google Sheet"* → chạy `python sync.py sync`.
+- **Cập nhật luôn bản Deploy online:** *"Đồng bộ Google Sheet, kiểm tra build và push lên GitHub"* → thực hiện trọn bộ 3 bước an toàn:
+  1. `python sync.py sync` — kéo dữ liệu & tab mới về `sheets/`.
+  2. `cd web-app && npm run build` — kiểm tra dữ liệu mới không gây lỗi build.
+  3. `git add . && git commit && git push origin main` — Vercel / Netlify tự động build lại và cập nhật web sau ~30 giây.
+
+*(Có thể dùng lệnh `/schedule` trong Antigravity nếu muốn tự động chạy `python sync.py sync` định kỳ.)*
+
+---
+
+## Cơ chế bảo vệ dữ liệu của `sync.py`
+
+1. **Phát hiện xung đột (Conflict):** Nếu cùng 1 ô bị sửa khác nhau ở cả máy và Web, script sẽ dừng lại và báo rõ vị trí ô trùng (`.sync/conflicts.json`) để bạn chọn `--on-conflict local` (ưu tiên máy) hoặc `--on-conflict remote` (ưu tiên Web).
+2. **Bảo vệ công thức:** Nếu Excel làm hỏng một ô công thức Google Sheets (ví dụ thành `#NAME?` / `#VALUE!`), script tự động chặn ghi đè và giữ nguyên công thức gốc.
+3. **Không tự động xóa tab:** Thiếu file local hoặc mất tab trên Web sẽ chỉ cảnh báo, không tự xóa dữ liệu.
