@@ -3,7 +3,7 @@
 ,,,,,,,,
 ,,,,,,,,
 Link ảnh,Hình ảnh thực tế,Từ vựng & Phiên âm,Nghĩa & Phân biệt nhanh,Cụm động từ (Collocations),Ví dụ thực tế,Mẹo nhớ / Âm thanh,Chủ đề,Nhóm con
-https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Sea_salt_nutrition_table.jpg/960px-Sea_salt_nutrition_table.jpg,"=ARRAYFORMULA(IF(A6:A="""", """", IMAGE(A6:A, 2)))",Salt /sɔːlt/,"Muối. Dùng chung cho mọi loại muối ăn (table salt, sea salt).","1. a pinch of salt: một nhúm muối
+https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Salt_Farmers_-_Pak_Thale-edit1.jpg/960px-Salt_Farmers_-_Pak_Thale-edit1.jpg,"=ARRAYFORMULA(IF(A6:A="""", """", IMAGE(A6:A, 2)))",Salt /sɔːlt/,"Muối. Dùng chung cho mọi loại muối ăn (table salt, sea salt).","1. a pinch of salt: một nhúm muối
 2. season with salt: nêm với muối
 3. add salt to taste: thêm muối cho vừa ăn","1. Add a pinch of salt to the soup before serving.
 2. Season the roasted potatoes with salt and rosemary.
