@@ -491,6 +491,7 @@ function parseGenericVocab(rows: string[][], deck: string): VocabItem[] {
   let wordCol = 0;
   let meaningCol = 1;
   let posCol = -1;
+  let formsCol = -1;
   let exampleCol = -1;
   let synCol = -1;
   let antCol = -1;
@@ -508,6 +509,7 @@ function parseGenericVocab(rows: string[][], deck: string): VocabItem[] {
       const mIdx = r.findIndex((c, idx) => idx !== wIdx && /(meaning|nghĩa|vietnamese)/i.test(c));
       if (mIdx !== -1) meaningCol = mIdx;
       posCol = r.findIndex((c) => /(part of speech|type|từ loại)/i.test(c));
+      formsCol = r.findIndex((c) => /(verb forms|v2\/v3|forms)/i.test(c));
       exampleCol = r.findIndex((c) => /(example|sentence|ví dụ)/i.test(c));
       synCol = r.findIndex((c) => /synonym|đồng nghĩa/i.test(c));
       antCol = r.findIndex((c) => /antonym|trái nghĩa/i.test(c));
@@ -527,6 +529,10 @@ function parseGenericVocab(rows: string[][], deck: string): VocabItem[] {
     const meaning = r[meaningCol] || '';
     if (!meaning && !r[exampleCol]) continue;
 
+    const rawPos = posCol >= 0 ? r[posCol] || undefined : undefined;
+    const rawForms = formsCol >= 0 ? r[formsCol] || undefined : undefined;
+    const partOfSpeech = rawPos || (rawForms ? `verb · ${rawForms}` : undefined);
+
     items.push({
       id: makeId(deck, word, i),
       word,
@@ -534,7 +540,7 @@ function parseGenericVocab(rows: string[][], deck: string): VocabItem[] {
       section: topicCol >= 0 ? r[topicCol] || undefined : undefined,
       subtopic: subtopicCol >= 0 ? r[subtopicCol] || undefined : undefined,
       meaning,
-      partOfSpeech: posCol >= 0 ? r[posCol] || undefined : undefined,
+      partOfSpeech,
       examples: exampleCol >= 0 && r[exampleCol] ? splitLines(r[exampleCol]) : [],
       synonyms: synCol >= 0 ? parsePairList(r[synCol] || '') : [],
       antonyms: antCol >= 0 ? parsePairList(r[antCol] || '') : [],
@@ -749,6 +755,7 @@ export function buildLibrary(): ParsedLibrary {
     'IELTS Listening',
     'IELTS Map',
     'Adjective',
+    'Verb',
     'Adjective Practice',
     'Phrasal Verbs Library',
     'Phrasal Verb',
