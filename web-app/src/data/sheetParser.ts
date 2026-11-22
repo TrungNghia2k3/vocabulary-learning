@@ -272,15 +272,24 @@ function parseIeltsReading(rows: string[][], deck: string): VocabItem[] {
     const r = rows[i];
     if (!r.some(Boolean)) continue;
 
-    // Detect passage title rows (only col 0 filled, not a table header)
+    // Detect passage title rows (col 0 filled, cols 1..6 empty, not a table header)
     if (
       r[0] &&
       !r[1] &&
       !r[2] &&
+      !r[3] &&
+      !r[4] &&
+      !r[5] &&
+      !r[6] &&
       !/^(=UPPER|Reading|Word)$/i.test(r[0]) &&
-      r[0].length > 15
+      r[0].length > 10
     ) {
       passageTitle = cleanFormulaTitle(r[0]);
+      continue;
+    }
+
+    // Skip "Reading / Question" sub-banner rows between passages
+    if (/^Reading$/i.test(r[0] || '') && !r[2]) {
       continue;
     }
 
@@ -305,7 +314,8 @@ function parseIeltsReading(rows: string[][], deck: string): VocabItem[] {
         id: makeId(deck, `${leftWord}-R`, i),
         word: leftWord,
         deck,
-        section: `${passageTitle} — Reading${r[1] ? ` (P.${r[1]})` : ''}`,
+        section: passageTitle,
+        subtopic: r[1] ? `Reading (P.${r[1]})` : 'Reading',
         meaning: r[2] || '',
         cambridgeUrl,
         examples: example ? [example] : [],
@@ -321,7 +331,7 @@ function parseIeltsReading(rows: string[][], deck: string): VocabItem[] {
     // Right table (Question): Word(rc), Meaning(rc+1), Cambridge(rc+2), Example(rc+3), Paraphrase(rc+4)
     if (rightWordCol > 0) {
       const qWord = r[rightWordCol] || '';
-      if (qWord && !/^Word$/i.test(qWord)) {
+      if (qWord && !/^(Word|Question)$/i.test(qWord)) {
         const q2 = r[rightWordCol + 2] || '';
         const q3 = r[rightWordCol + 3] || '';
         const cambridgeUrl = isUrl(q2) ? q2 : isUrl(q3) ? q3 : undefined;
@@ -332,7 +342,8 @@ function parseIeltsReading(rows: string[][], deck: string): VocabItem[] {
           id: makeId(deck, `${qWord}-Q`, i),
           word: qWord,
           deck,
-          section: `${passageTitle} — Question`,
+          section: passageTitle,
+          subtopic: 'Question',
           meaning: r[rightWordCol + 1] || '',
           cambridgeUrl,
           examples: example ? [example] : [],
