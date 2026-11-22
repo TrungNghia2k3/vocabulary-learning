@@ -5,6 +5,7 @@ export type AppMode =
   | 'browse'
   | 'flashcard'
   | 'quiz'
+  | 'image-quiz'
   | 'syn-ant-quiz'
   | 'spelling'
   | 'today'

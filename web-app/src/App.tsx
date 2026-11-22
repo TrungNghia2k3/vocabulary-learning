@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Brain,
   CalendarDays,
+  Camera,
   GitBranch,
   HelpCircle,
   Home,
@@ -18,6 +19,7 @@ import { Dashboard } from './components/Dashboard';
 import { BrowseView } from './components/BrowseView';
 import { FlashcardView } from './components/FlashcardView';
 import { QuizView } from './components/QuizView';
+import { ImageQuizView } from './components/ImageQuizView';
 import { SpellingView } from './components/SpellingView';
 import { TodayWordsView } from './components/TodayWordsView';
 import { SpecialPracticeView } from './components/SpecialPracticeView';
@@ -39,6 +41,7 @@ const NAV_TABS: Array<{ id: AppMode; label: string; icon: typeof Home }> = [
   { id: 'dashboard', label: 'Tổng quan', icon: Home },
   { id: 'browse', label: 'Duyệt từ', icon: List },
   { id: 'flashcard', label: 'Flashcard', icon: Layers },
+  { id: 'image-quiz', label: 'What is it?', icon: Camera },
   { id: 'quiz', label: 'Quiz', icon: HelpCircle },
   { id: 'syn-ant-quiz', label: 'Đồng/Trái nghĩa', icon: Brain },
   { id: 'spelling', label: 'Chính tả', icon: Keyboard },
@@ -243,6 +246,17 @@ export default function App() {
             learnedIds={learnedIds}
             onToggleLearned={handleToggleLearned}
             accent={accent}
+          />
+        )}
+
+        {mode === 'image-quiz' && (
+          <ImageQuizView
+            key={`imgquiz-${selectedDeck}-${selectedTopic}`}
+            activeVocab={activeVocab}
+            allVocab={library.vocab}
+            accent={accent}
+            onScoreSaved={handleScoreSaved}
+            onMarkLearned={handleMarkLearned}
           />
         )}
 

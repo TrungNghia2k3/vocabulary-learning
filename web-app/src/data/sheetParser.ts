@@ -148,10 +148,21 @@ function parseComprehensibleInput(
     const rawWord = r[2] || '';
     if (!rawWord) continue;
 
-    // Split "Salt /sɔːlt/" into word + phonetic
-    const phonMatch = rawWord.match(/^(.+?)\s*(\/[^/]+\/)$/);
-    const word = phonMatch ? phonMatch[1].trim() : rawWord;
-    const phonetic = phonMatch ? phonMatch[2].trim() : undefined;
+    // Extract all IPA blocks like /ˈsɪŋɡl bed/ (no leading/trailing whitespace inside slashes)
+    // while preserving English word separators like "Trash can / Litter bin".
+    const ipaRegex = /\/(?!\s)[^/]+?(?<!\s)\//g;
+    const ipaMatches = rawWord.match(ipaRegex) || [];
+    const cleanedWord = rawWord
+      .replace(ipaRegex, '')
+      .replace(/\(\s*\)/g, '')
+      .replace(/\s+-\s+\)/g, ')')
+      .replace(/\(\s+/g, '(')
+      .replace(/\s+\)/g, ')')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/\s*\/\s*$/g, '')
+      .trim();
+    const word = cleanedWord || rawWord;
+    const phonetic = ipaMatches.length > 0 ? ipaMatches.join(' · ') : undefined;
     const imageUrl = isUrl(r[0] || '') ? r[0] : undefined;
     const meaning = r[3] || '';
     const colLines = splitLines(r[4] || '').map((l) => l.replace(/^\d+\.\s*/, ''));

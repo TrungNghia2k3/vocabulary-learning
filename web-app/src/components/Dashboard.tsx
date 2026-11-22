@@ -2,6 +2,7 @@ import {
   BookOpen,
   Brain,
   CalendarDays,
+  Camera,
   CheckCircle2,
   GitBranch,
   HelpCircle,
@@ -47,6 +48,9 @@ export function Dashboard({
   const learnedCount = activeVocab.filter((v) => learnedIds.has(v.id)).length;
   const progress = totalCount > 0 ? Math.round((learnedCount / totalCount) * 100) : 0;
   const synAntCount = activeVocab.filter((v) => v.synonyms.length > 0 || v.antonyms.length > 0).length;
+  const imageVocabCount =
+    activeVocab.filter((v) => Boolean(v.imageUrl)).length ||
+    library.vocab.filter((v) => Boolean(v.imageUrl)).length;
 
   const vocabDecks = library.decks.filter((d) => d.kind === 'vocab');
   const emptyDecks = library.decks.filter((d) => d.kind === 'empty');
@@ -69,6 +73,14 @@ export function Dashboard({
       icon: Layers,
       color: 'from-indigo-500 to-blue-600',
       badge: `${totalCount} thẻ`,
+    },
+    {
+      mode: 'image-quiz',
+      title: 'What is it? (Đoán ảnh)',
+      desc: 'Chỉ hiện hình ảnh thực tế — tự gõ hoặc chọn từ tiếng Anh tương ứng',
+      icon: Camera,
+      color: 'from-fuchsia-500 to-indigo-600',
+      badge: `${imageVocabCount} ảnh`,
     },
     {
       mode: 'quiz',
