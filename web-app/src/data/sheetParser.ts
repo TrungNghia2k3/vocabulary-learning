@@ -452,16 +452,26 @@ function parseAdjective(rows: string[][], deck: string): VocabItem[] {
   const items: VocabItem[] = [];
   const headerIdx = rows.findIndex((r) => /^Word$/i.test(r[0] || ''));
   if (headerIdx === -1) return items;
+  const headerRow = rows[headerIdx] || [];
+  const catCol = headerRow.findIndex((c) => /^(category|chủ đề|topic)/i.test(c));
 
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const r = rows[i];
     if (!r.some(Boolean)) continue;
     const word = r[0] || '';
-    if (!word || /^Word$/i.test(word) || /^=UPPER\(/i.test(word) || /^Link$/i.test(word)) continue;
+    if (
+      !word ||
+      /^(Word|Category|Link)$/i.test(word) ||
+      /^=UPPER\(/i.test(word) ||
+      /^\*\*/.test(word)
+    ) {
+      continue;
+    }
     items.push({
       id: makeId(deck, word, i),
       word,
       deck,
+      section: catCol >= 0 ? r[catCol] || undefined : undefined,
       partOfSpeech: 'adjective',
       meaning: r[1] || '',
       synonyms: parsePairList(r[2] || ''),
