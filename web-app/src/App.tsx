@@ -323,7 +323,11 @@ export default function App() {
         )}
 
         {mode === 'ielts-task2' && (
-          <IeltsTask2View prompts={library.ieltsTask2} accent={accent} />
+          <IeltsTask2View
+            prompts={library.ieltsTask2}
+            formats={library.ieltsTask2Formats}
+            accent={accent}
+          />
         )}
 
         {(mode === 'prepositions' ||

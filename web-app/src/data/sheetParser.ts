@@ -7,7 +7,9 @@ import type {
   IeltsTask1Example,
   IeltsTask1Item,
   IeltsTask1Section,
+  IeltsTask2Format,
   IeltsTask2Prompt,
+  IeltsTask2Section,
   ParsedLibrary,
   PhrasalVerbItem,
   PrepositionItem,
@@ -900,11 +902,11 @@ function parseIeltsTask1Sheet(
 
 function detectTask2Type(prompt: string): string {
   const low = prompt.toLowerCase();
-  if (/agree or disagree|support or oppose/.test(low)) return 'Opinion (Agree / Disagree)';
-  if (/discuss both/.test(low)) return 'Discussion (Both Views)';
-  if (/positive or negative/.test(low)) return 'Positive / Negative';
-  if (/advantages? and disadvantages?/.test(low)) return 'Advantages / Disadvantages';
-  if (/causes?.*solutions?|problems?.*solutions?/.test(low)) return 'Problem / Solution';
+  if (/agree or disagree|support or oppose/.test(low)) return 'Opinion Essay';
+  if (/discuss both/.test(low)) return 'Discussion Essay';
+  if (/positive or negative/.test(low)) return 'Positive and Negative Essay';
+  if (/advantages? and disadvantages?/.test(low)) return 'Advantages and Disadvantages Essay';
+  if (/causes?.*solutions?|problems?.*solutions?/.test(low)) return 'Problem and Solution Essay';
   return 'IELTS Task 2 Essay';
 }
 
@@ -919,15 +921,79 @@ function makeTask2Title(prompt: string, idx: number): string {
   return cap.length > 78 ? cap.slice(0, 75).trimEnd() + '…' : cap;
 }
 
+function detectFormatVariantLabel(
+  questionType: string,
+  introText: string,
+  sameTypeIndex: number
+): string {
+  const low = introText.toLowerCase();
+  if (/completely\s*\[?agree\/disagree\]?/.test(low)) {
+    return 'Đồng ý / Phản đối hoàn toàn (One-sided)';
+  }
+  if (/only to some extent|partially agree|to some extent/.test(low)) {
+    return 'Đồng ý một phần (Balanced / Partial)';
+  }
+  if (/ongoing debate|view\s*point of a/.test(low)) {
+    return 'Thảo luận 2 quan điểm (Both Views + Opinion)';
+  }
+  if (/advantages\/disadvantages|benefits\/drawbacks|outweigh/.test(low)) {
+    return 'So sánh Lợi ích & Bất lợi (Outweigh)';
+  }
+  if (/primarily driven by several key factors|key factors/.test(low)) {
+    return 'Nguyên nhân + Đánh giá Tích cực / Tiêu cực';
+  }
+  if (/although i understand why some people view this as a negative/.test(low)) {
+    return 'Phản biện + Khẳng định Tích cực (Concession)';
+  }
+  return `${questionType} — Khung #${sameTypeIndex}`;
+}
+
+function normalizeTask2FormatSections(
+  rawSections: Array<{ part: string; text: string }>
+): IeltsTask2Section[] {
+  const hasOverview = rawSections.some((s) => /^overview$/i.test(s.part));
+  const hasConclusion = rawSections.some((s) => /^conclusion$/i.test(s.part));
+  const lastStartsWithConclusion =
+    rawSections.length > 0 && /^in conclusion\b/i.test(rawSections[rawSections.length - 1].text);
+
+  // If the Google Sheet reused the Task 1 Part dropdown (Introduction / Overview / Body 1 / Body 2)
+  // for a 4-paragraph Task 2 essay template ending in "In conclusion, ...", map to Task 2 labels.
+  if (rawSections.length === 4 && (hasOverview || (!hasConclusion && lastStartsWithConclusion))) {
+    const standardLabels = ['Introduction', 'Body 1', 'Body 2', 'Conclusion'];
+    return rawSections.map((s, idx) => ({
+      part: standardLabels[idx],
+      text: s.text,
+    }));
+  }
+
+  return rawSections.map((s) => ({
+    part: s.part || 'Paragraph',
+    text: s.text,
+  }));
+}
+
 function parseIeltsWritingTask2(
   rows: string[][],
   deck: string
-): { prompts: IeltsTask2Prompt[]; vocab: VocabItem[] } {
+): { prompts: IeltsTask2Prompt[]; formats: IeltsTask2Format[]; vocab: VocabItem[] } {
   const headerIdx = rows.findIndex((r) => /^Word$/i.test(r[0] || ''));
-  if (headerIdx === -1) return { prompts: [], vocab: [] };
+  if (headerIdx === -1) return { prompts: [], formats: [], vocab: [] };
   const header = rows[headerIdx] || [];
-  const meaningCol = header.findIndex((c) => /meaning|nghĩa/i.test(c));
-  const topicCol = header.findIndex((c) => /^(topic|prompt|chủ đề)/i.test(c));
+
+  const formatCol = header.findIndex((c) => /^format$/i.test(c));
+  const leftLimit = formatCol >= 0 ? formatCol : header.length;
+
+  const meaningCol = header.findIndex((c, idx) => idx < leftLimit && /meaning|nghĩa/i.test(c));
+  const topicCol = header.findIndex((c, idx) => idx < leftLimit && /^(topic|prompt|chủ đề)/i.test(c));
+  const partCol = header.findIndex((c, idx) => idx < leftLimit && /^part$/i.test(c));
+  const qTypeCol = header.findIndex((c, idx) => idx < leftLimit && /^question\s*type$/i.test(c));
+
+  const formatPartCol =
+    formatCol >= 0 ? header.findIndex((c, idx) => idx > formatCol && /^part$/i.test(c)) : -1;
+  const formatQTypeCol =
+    formatCol >= 0
+      ? header.findIndex((c, idx) => idx > formatCol && /^question\s*type$/i.test(c))
+      : -1;
 
   const prompts: IeltsTask2Prompt[] = [];
   const vocab: VocabItem[] = [];
@@ -938,16 +1004,21 @@ function parseIeltsWritingTask2(
     const phrase = (r[0] || '').trim();
     const meaning = meaningCol >= 0 ? (r[meaningCol] || '').trim() : (r[1] || '').trim();
     const topicText = topicCol >= 0 ? (r[topicCol] || '').trim() : '';
+    const partText = partCol >= 0 ? (r[partCol] || '').trim() : '';
+    const qTypeText = qTypeCol >= 0 ? (r[qTypeCol] || '').trim() : '';
 
     if (topicText) {
       currentPrompt = {
         id: `task2::${prompts.length + 1}`,
         title: makeTask2Title(topicText, prompts.length + 1),
         prompt: topicText,
-        questionType: detectTask2Type(topicText),
+        questionType: qTypeText || detectTask2Type(topicText),
         expressions: [],
+        sampleSections: [],
       };
       prompts.push(currentPrompt);
+    } else if (qTypeText && currentPrompt && !currentPrompt.questionType) {
+      currentPrompt.questionType = qTypeText;
     }
 
     if (!phrase) continue;
@@ -956,16 +1027,31 @@ function parseIeltsWritingTask2(
         id: 'task2::general',
         title: 'General Writing Task 2 Expressions',
         prompt: 'General academic expressions for IELTS Writing Task 2',
-        questionType: 'General',
+        questionType: qTypeText || 'General',
         expressions: [],
+        sampleSections: [],
       };
       prompts.push(currentPrompt);
+    }
+
+    // If the row has a Part (Introduction / Body 1 / Body 2 / Conclusion) and looks like an essay paragraph
+    // (no Vietnamese meaning or long paragraph), store as structured model essay instead of flashcard vocab.
+    const wordCount = phrase.split(/\s+/).length;
+    const isSampleParagraph = Boolean(partText) && (!meaning || wordCount >= 18);
+
+    if (isSampleParagraph) {
+      currentPrompt.sampleSections.push({
+        part: partText,
+        text: phrase,
+      });
+      continue;
     }
 
     currentPrompt.expressions.push({
       id: `t2-expr::${i}`,
       phrase,
       meaning,
+      part: partText || undefined,
     });
 
     vocab.push({
@@ -973,6 +1059,7 @@ function parseIeltsWritingTask2(
       word: phrase,
       deck,
       section: currentPrompt.title,
+      subtopic: partText || currentPrompt.questionType,
       meaning,
       definitions: [],
       examples: [],
@@ -983,7 +1070,67 @@ function parseIeltsWritingTask2(
     });
   }
 
-  return { prompts, vocab };
+  // Parse side-by-side Format Templates table (Cols G..I)
+  const formats: IeltsTask2Format[] = [];
+  if (formatCol >= 0) {
+    type RawFmtBlock = { questionType: string; rows: Array<{ part: string; text: string }> };
+    const rawBlocks: RawFmtBlock[] = [];
+    let activeBlock: RawFmtBlock | null = null;
+
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const r = rows[i];
+      const fText = (r[formatCol] || '').trim();
+      const fPart = formatPartCol >= 0 ? (r[formatPartCol] || '').trim() : '';
+      const fQType = formatQTypeCol >= 0 ? (r[formatQTypeCol] || '').trim() : '';
+
+      if (!fText) {
+        if (activeBlock && activeBlock.rows.length > 0) {
+          rawBlocks.push(activeBlock);
+          activeBlock = null;
+        }
+        continue;
+      }
+
+      // Split cleanly if a new Introduction starts while a previous block already has non-Intro rows
+      if (
+        /^introduction$/i.test(fPart) &&
+        activeBlock &&
+        activeBlock.rows.some((x) => !/^introduction$/i.test(x.part))
+      ) {
+        rawBlocks.push(activeBlock);
+        activeBlock = null;
+      }
+
+      if (!activeBlock) {
+        activeBlock = { questionType: fQType || 'IELTS Task 2 Essay', rows: [] };
+      } else if (fQType && activeBlock.questionType === 'IELTS Task 2 Essay') {
+        activeBlock.questionType = fQType;
+      }
+
+      activeBlock.rows.push({ part: fPart || 'Paragraph', text: fText });
+    }
+    if (activeBlock && activeBlock.rows.length > 0) {
+      rawBlocks.push(activeBlock);
+    }
+
+    const typeCounts = new Map<string, number>();
+    rawBlocks.forEach((blk, idx) => {
+      const qType = blk.questionType || 'IELTS Task 2 Essay';
+      const nextCount = (typeCounts.get(qType) || 0) + 1;
+      typeCounts.set(qType, nextCount);
+
+      const sections = normalizeTask2FormatSections(blk.rows);
+      const introText = sections[0]?.text || '';
+      formats.push({
+        id: `t2-fmt::${idx + 1}`,
+        questionType: qType,
+        variantLabel: detectFormatVariantLabel(qType, introText, nextCount),
+        sections,
+      });
+    });
+  }
+
+  return { prompts, formats, vocab };
 }
 
 const SKIP_SHEETS = new Set(['Template']);
@@ -998,6 +1145,7 @@ export function buildLibrary(): ParsedLibrary {
   const ieltsTask1: IeltsTask1Item[] = [];
   const ieltsTask1Examples: IeltsTask1Example[] = [];
   const ieltsTask2: IeltsTask2Prompt[] = [];
+  const ieltsTask2Formats: IeltsTask2Format[] = [];
 
   const preferredOrder = [
     'Comprehensible Input',
@@ -1077,8 +1225,9 @@ export function buildLibrary(): ParsedLibrary {
       continue;
     }
     if (name === 'IELTS Writing Task 2') {
-      const { prompts, vocab: t2Vocab } = parseIeltsWritingTask2(rows, name);
+      const { prompts, formats, vocab: t2Vocab } = parseIeltsWritingTask2(rows, name);
       ieltsTask2.push(...prompts);
+      ieltsTask2Formats.push(...formats);
       vocab.push(...t2Vocab);
       decks.push({
         name,
@@ -1167,6 +1316,7 @@ export function buildLibrary(): ParsedLibrary {
     ieltsTask1,
     ieltsTask1Examples,
     ieltsTask2,
+    ieltsTask2Formats,
     loadedAt,
   };
 }

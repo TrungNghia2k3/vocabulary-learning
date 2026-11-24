@@ -141,7 +141,7 @@ export function Dashboard({
       title: 'IELTS Writing Task 2',
       count: library.ieltsTask2.length,
       icon: FilePenLine,
-      subtitle: 'Đề bài luận, kho cụm từ Band 7–8+ & luyện viết tích xanh tự động',
+      subtitle: 'Đề bài luận, khung bài mẫu (Format), kho cụm từ Band 7–8+ & luyện viết',
     },
     {
       mode: 'prepositions',

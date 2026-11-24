@@ -157,6 +157,19 @@ export interface IeltsTask2Expression {
   id: string;
   phrase: string;
   meaning: string;
+  part?: string;
+}
+
+export interface IeltsTask2Section {
+  part: string;
+  text: string;
+}
+
+export interface IeltsTask2Format {
+  id: string;
+  questionType: string;
+  variantLabel: string;
+  sections: IeltsTask2Section[];
 }
 
 export interface IeltsTask2Prompt {
@@ -165,6 +178,7 @@ export interface IeltsTask2Prompt {
   prompt: string;
   questionType: string;
   expressions: IeltsTask2Expression[];
+  sampleSections: IeltsTask2Section[];
 }
 
 export interface ParsedLibrary {
@@ -177,5 +191,6 @@ export interface ParsedLibrary {
   ieltsTask1: IeltsTask1Item[];
   ieltsTask1Examples: IeltsTask1Example[];
   ieltsTask2: IeltsTask2Prompt[];
+  ieltsTask2Formats: IeltsTask2Format[];
   loadedAt: string;
 }
