@@ -143,6 +143,16 @@ export interface IeltsTask1Item {
   sections: IeltsTask1Section[];
 }
 
+export interface IeltsTask1Example {
+  id: string;
+  taskType: 'chart' | 'map' | 'process';
+  sourceSheet: string;
+  part: string;
+  basePart: string;
+  text: string;
+  meaning?: string;
+}
+
 export interface IeltsTask2Expression {
   id: string;
   phrase: string;
@@ -165,6 +175,7 @@ export interface ParsedLibrary {
   idioms: IdiomItem[];
   collocations: CollocationItem[];
   ieltsTask1: IeltsTask1Item[];
+  ieltsTask1Examples: IeltsTask1Example[];
   ieltsTask2: IeltsTask2Prompt[];
   loadedAt: string;
 }

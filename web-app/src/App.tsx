@@ -315,7 +315,11 @@ export default function App() {
         )}
 
         {mode === 'ielts-task1' && (
-          <IeltsTask1View items={library.ieltsTask1} accent={accent} />
+          <IeltsTask1View
+            items={library.ieltsTask1}
+            examples={library.ieltsTask1Examples}
+            accent={accent}
+          />
         )}
 
         {mode === 'ielts-task2' && (

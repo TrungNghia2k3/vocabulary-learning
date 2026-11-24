@@ -8,21 +8,30 @@ import {
   EyeOff,
   FileText,
   Image as ImageIcon,
+  ListChecks,
   PenLine,
   RotateCcw,
+  Search,
   Volume2,
   X,
   ZoomIn,
 } from 'lucide-react';
-import type { Accent, IeltsTask1Item, IeltsTask1Section } from '../types';
+import type {
+  Accent,
+  IeltsTask1Example,
+  IeltsTask1Item,
+  IeltsTask1Section,
+} from '../types';
 import { speakText } from '../utils/speech';
 
 interface IeltsTask1ViewProps {
   items: IeltsTask1Item[];
+  examples: IeltsTask1Example[];
   accent: Accent;
 }
 
 type StudyTab = 'breakdown' | 'essay' | 'practice';
+type TopSection = 'tasks' | 'examples';
 
 const PART_STYLES: Record<
   string,
@@ -69,8 +78,30 @@ function countWords(text: string): number {
   return text.trim() ? text.trim().split(/\s+/).length : 0;
 }
 
-export function IeltsTask1View({ items, accent }: IeltsTask1ViewProps) {
+/** Highlights [template slots] like [the lake side] or [9] inside Map/Chart Example sentences. */
+function renderHighlightedTemplate(text: string) {
+  const parts = text.split(/(\[[^\]]+\])/g);
+  return parts.map((chunk, i) => {
+    if (chunk.startsWith('[') && chunk.endsWith(']')) {
+      return (
+        <span
+          key={i}
+          className="mx-0.5 inline-block rounded-md bg-amber-100 px-1.5 py-0.5 font-bold text-amber-900 dark:bg-amber-950/80 dark:text-amber-200"
+        >
+          {chunk}
+        </span>
+      );
+    }
+    return <span key={i}>{chunk}</span>;
+  });
+}
+
+export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps) {
+  const [topSection, setTopSection] = useState<TopSection>('tasks');
   const [typeFilter, setTypeFilter] = useState<'all' | 'chart' | 'map' | 'process'>('all');
+  const [examplePartFilter, setExamplePartFilter] = useState<string>('ALL');
+  const [exampleSearch, setExampleSearch] = useState('');
+  const [copiedExId, setCopiedExId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string>(items[0]?.id || '');
   const [studyTab, setStudyTab] = useState<StudyTab>('breakdown');
   const [zoomOpen, setZoomOpen] = useState(false);
@@ -88,6 +119,32 @@ export function IeltsTask1View({ items, accent }: IeltsTask1ViewProps) {
     if (typeFilter === 'all') return items;
     return items.filter((it) => it.taskType === typeFilter);
   }, [items, typeFilter]);
+
+  const examplesByType = useMemo(() => {
+    if (typeFilter === 'all') return examples;
+    return examples.filter((e) => e.taskType === typeFilter);
+  }, [examples, typeFilter]);
+
+  const exampleParts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const ex of examplesByType) {
+      counts.set(ex.part, (counts.get(ex.part) || 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([name, count]) => ({ name, count }));
+  }, [examplesByType]);
+
+  const filteredExamples = useMemo(() => {
+    const q = exampleSearch.trim().toLowerCase();
+    return examplesByType.filter((ex) => {
+      if (examplePartFilter !== 'ALL' && ex.part !== examplePartFilter) return false;
+      if (!q) return true;
+      return (
+        ex.text.toLowerCase().includes(q) ||
+        ex.part.toLowerCase().includes(q) ||
+        (ex.meaning || '').toLowerCase().includes(q)
+      );
+    });
+  }, [examplesByType, examplePartFilter, exampleSearch]);
 
   const activeTask = useMemo(() => {
     return filtered.find((it) => it.id === selectedId) || filtered[0] || null;
@@ -179,76 +236,259 @@ export function IeltsTask1View({ items, accent }: IeltsTask1ViewProps) {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
-            {(
-              [
-                { id: 'all', label: `Tất cả (${items.length})` },
-                { id: 'chart', label: `Charts (${items.filter((i) => i.taskType === 'chart').length})` },
-                { id: 'map', label: `Maps (${items.filter((i) => i.taskType === 'map').length})` },
-                { id: 'process', label: `Process (${items.filter((i) => i.taskType === 'process').length})` },
-              ] as const
-            ).map((f) => (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Top Mode Switch: Full Prompts vs Example Sentence Bank */}
+            <div className="flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
               <button
-                key={f.id}
-                onClick={() => setTypeFilter(f.id)}
-                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
-                  typeFilter === f.id
+                onClick={() => setTopSection('tasks')}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  topSection === 'tasks'
                     ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
                 }`}
               >
-                {f.label}
+                <ImageIcon className="h-3.5 w-3.5" /> Đề bài kèm ảnh ({items.length})
               </button>
-            ))}
+              <button
+                onClick={() => setTopSection('examples')}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  topSection === 'examples'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
+                }`}
+              >
+                <ListChecks className="h-3.5 w-3.5" /> Mẫu câu Example ({examples.length})
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  {
+                    id: 'all',
+                    label: `Tất cả (${topSection === 'tasks' ? items.length : examples.length})`,
+                  },
+                  {
+                    id: 'chart',
+                    label: `Charts (${(topSection === 'tasks' ? items : examples).filter((i) => i.taskType === 'chart').length})`,
+                  },
+                  {
+                    id: 'map',
+                    label: `Maps (${(topSection === 'tasks' ? items : examples).filter((i) => i.taskType === 'map').length})`,
+                  },
+                  {
+                    id: 'process',
+                    label: `Process (${(topSection === 'tasks' ? items : examples).filter((i) => i.taskType === 'process').length})`,
+                  },
+                ] as const
+              ).map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => {
+                    setTypeFilter(f.id);
+                    setExamplePartFilter('ALL');
+                  }}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                    typeFilter === f.id
+                      ? 'bg-slate-900 text-white shadow-xs dark:bg-white dark:text-slate-900'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Horizontal Task Prompt Cards */}
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {filtered.map((task, idx) => {
-            const isSelected = activeTask?.id === task.id;
-            const totalSentences = task.sections.reduce((s, sec) => s + sec.sentences.length, 0);
-            return (
-              <button
-                key={task.id}
-                onClick={() => setSelectedId(task.id)}
-                className={`group flex items-center gap-3 rounded-xl border p-2.5 text-left transition ${
-                  isSelected
-                    ? 'border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/20 dark:border-emerald-400 dark:bg-emerald-950/40'
-                    : 'border-slate-200 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-100/70 dark:border-slate-800 dark:bg-slate-800/40'
-                }`}
-              >
-                {task.imageUrl ? (
-                  <img
-                    src={task.imageUrl}
-                    alt={task.title}
-                    className="h-14 w-16 shrink-0 rounded-lg border border-slate-200 bg-white object-cover dark:border-slate-700"
-                  />
-                ) : (
-                  <div className="flex h-14 w-16 shrink-0 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-slate-400 dark:border-slate-700 dark:bg-slate-900">
-                    <ImageIcon className="h-5 w-5" />
+        {/* Horizontal Task Prompt Cards (only in 'tasks' view) */}
+        {topSection === 'tasks' && (
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {filtered.map((task, idx) => {
+              const isSelected = activeTask?.id === task.id;
+              const totalSentences = task.sections.reduce((s, sec) => s + sec.sentences.length, 0);
+              return (
+                <button
+                  key={task.id}
+                  onClick={() => setSelectedId(task.id)}
+                  className={`group flex items-center gap-3 rounded-xl border p-2.5 text-left transition ${
+                    isSelected
+                      ? 'border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/20 dark:border-emerald-400 dark:bg-emerald-950/40'
+                      : 'border-slate-200 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-100/70 dark:border-slate-800 dark:bg-slate-800/40'
+                  }`}
+                >
+                  {task.imageUrl ? (
+                    <img
+                      src={task.imageUrl}
+                      alt={task.title}
+                      className="h-14 w-16 shrink-0 rounded-lg border border-slate-200 bg-white object-cover dark:border-slate-700"
+                    />
+                  ) : (
+                    <div className="flex h-14 w-16 shrink-0 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-slate-400 dark:border-slate-700 dark:bg-slate-900">
+                      <ImageIcon className="h-5 w-5" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                        {task.chartType}
+                      </span>
+                      <span className="text-[10px] text-slate-400">#{idx + 1}</span>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-xs font-bold text-slate-800 dark:text-slate-100">
+                      {task.title}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-slate-400">{totalSentences} câu mẫu</p>
                   </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                      {task.chartType}
-                    </span>
-                    <span className="text-[10px] text-slate-400">#{idx + 1}</span>
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-xs font-bold text-slate-800 dark:text-slate-100">
-                    {task.title}
-                  </p>
-                  <p className="mt-0.5 text-[10px] text-slate-400">{totalSentences} câu mẫu</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Main Split-Screen Workspace */}
-      {activeTask && (
+      {/* DEDICATED VIEW: "... Example" Sentence Templates List */}
+      {topSection === 'examples' && (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-bold uppercase text-slate-400">Phần:</span>
+              <button
+                onClick={() => setExamplePartFilter('ALL')}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                  examplePartFilter === 'ALL'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                }`}
+              >
+                Tất cả ({examplesByType.length})
+              </button>
+              {exampleParts.map((p) => (
+                <button
+                  key={p.name}
+                  onClick={() => setExamplePartFilter(p.name)}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                    examplePartFilter === p.name
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                >
+                  {p.name} ({p.count})
+                </button>
+              ))}
+            </div>
+
+            <div className="relative sm:w-72">
+              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={exampleSearch}
+                onChange={(e) => setExampleSearch(e.target.value)}
+                placeholder="Tìm mẫu câu Example..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pr-3 pl-9 text-xs outline-none focus:border-indigo-500 focus:bg-white dark:border-slate-700 dark:bg-slate-800"
+              />
+            </div>
+          </div>
+
+          {filteredExamples.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-12 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">
+              Không tìm thấy mẫu câu Example phù hợp.
+            </div>
+          ) : (
+            (() => {
+              // Group cleanly by (sourceSheet + part)
+              const groups = new Map<string, IeltsTask1Example[]>();
+              for (const ex of filteredExamples) {
+                const key = `${ex.sourceSheet} — ${ex.part}`;
+                const arr = groups.get(key) || [];
+                arr.push(ex);
+                groups.set(key, arr);
+              }
+              return (
+                <div className="space-y-5">
+                  {Array.from(groups.entries()).map(([groupLabel, list]) => {
+                    const st = getPartStyle(list[0].basePart);
+                    return (
+                      <div
+                        key={groupLabel}
+                        className={`rounded-2xl border p-4 shadow-xs ${st.border} ${st.bg}`}
+                      >
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`rounded-lg px-2.5 py-1 text-xs font-extrabold ${st.badge}`}>
+                              {list[0].part}
+                            </span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                              {list[0].sourceSheet}
+                            </span>
+                          </div>
+                          <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-bold text-slate-600 shadow-2xs dark:bg-slate-900 dark:text-slate-300">
+                            {list.length} mẫu câu
+                          </span>
+                        </div>
+
+                        <div className="space-y-2.5">
+                          {list.map((ex, idx) => (
+                            <div
+                              key={ex.id}
+                              className="flex items-start justify-between gap-3 rounded-xl bg-white p-3.5 shadow-2xs dark:bg-slate-900"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start gap-2">
+                                  <span className="mt-0.5 shrink-0 text-xs font-bold text-slate-400">
+                                    {idx + 1}.
+                                  </span>
+                                  <p className="text-sm leading-relaxed font-medium text-slate-800 dark:text-slate-100">
+                                    {renderHighlightedTemplate(ex.text)}
+                                  </p>
+                                </div>
+                                {ex.meaning && (
+                                  <p className="mt-1 pl-5 text-xs text-slate-500 dark:text-slate-400">
+                                    → {ex.meaning}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex shrink-0 items-center gap-1">
+                                <button
+                                  onClick={() =>
+                                    speakText(ex.text.replace(/[[\]]/g, ''), accent, 0.92)
+                                  }
+                                  title="Phát âm"
+                                  className="rounded-lg p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950"
+                                >
+                                  <Volume2 className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard?.writeText(ex.text);
+                                    setCopiedExId(ex.id);
+                                    setTimeout(() => setCopiedExId(null), 1400);
+                                  }}
+                                  title="Sao chép mẫu câu"
+                                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+                                >
+                                  {copiedExId === ex.id ? (
+                                    <Check className="h-4 w-4 text-emerald-600" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()
+          )}
+        </div>
+      )}
+
+      {/* Main Split-Screen Workspace (only in 'tasks' view) */}
+      {topSection === 'tasks' && activeTask && (
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
           {/* LEFT: Sticky Task Prompt Image */}
           <div className="lg:sticky lg:top-20 lg:col-span-5">

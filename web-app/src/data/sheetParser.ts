@@ -4,6 +4,7 @@ import type {
   CollocationItem,
   DeckInfo,
   IdiomItem,
+  IeltsTask1Example,
   IeltsTask1Item,
   IeltsTask1Section,
   IeltsTask2Prompt,
@@ -768,9 +769,9 @@ function parseIeltsTask1Sheet(
   sheetName: string,
   taskType: 'chart' | 'map' | 'process',
   embeddedMap: Record<string, string> = {}
-): IeltsTask1Item[] {
+): { tasks: IeltsTask1Item[]; examples: IeltsTask1Example[] } {
   const headerIdx = rows.findIndex((r) => /^Word$/i.test(r[0] || ''));
-  if (headerIdx === -1) return [];
+  if (headerIdx === -1) return { tasks: [], examples: [] };
   const header = rows[headerIdx] || [];
   const meaningCol = header.findIndex((c) => /meaning|nghĩa/i.test(c));
   const partCol = header.findIndex((c) => /^part$/i.test(c));
@@ -778,6 +779,7 @@ function parseIeltsTask1Sheet(
 
   type RawEntry = { rowNum: number; text: string; meaning?: string; part: string; img?: string };
   const blocks: RawEntry[][] = [];
+  const examples: IeltsTask1Example[] = [];
   let current: RawEntry[] = [];
 
   for (let i = headerIdx + 1; i < rows.length; i++) {
@@ -793,6 +795,26 @@ function parseIeltsTask1Sheet(
     const rowNum = i + 1; // 1-based Google Sheet row number
     const meaning = meaningCol >= 0 ? (r[meaningCol] || '').trim() || undefined : undefined;
     const part = (partCol >= 0 ? (r[partCol] || '').trim() : '') || 'Sample';
+
+    // Separate "... Example" rows into the dedicated Example Templates list
+    if (/\bexample\b/i.test(part)) {
+      if (current.length > 0) {
+        blocks.push(current);
+        current = [];
+      }
+      const basePart = part.replace(/\s*\bexample\b\s*/gi, '').trim() || 'Example';
+      examples.push({
+        id: `t1ex::${sheetName}::${rowNum}`,
+        taskType,
+        sourceSheet: sheetName,
+        part,
+        basePart,
+        text,
+        meaning,
+      });
+      continue;
+    }
+
     const rawImg = imgCol >= 0 ? (r[imgCol] || '').trim() : '';
     const img = isUrl(rawImg) ? rawImg : embeddedMap[String(rowNum)];
 
@@ -812,7 +834,7 @@ function parseIeltsTask1Sheet(
   const fallbackLabel =
     taskType === 'map' ? 'Map' : taskType === 'process' ? 'Process' : 'Chart';
 
-  return blocks.map((block, idx) => {
+  const tasks = blocks.map((block, idx) => {
     const sectionsMap = new Map<string, IeltsTask1Section>();
     let imageUrl: string | undefined;
 
@@ -872,6 +894,8 @@ function parseIeltsTask1Sheet(
       sections,
     };
   });
+
+  return { tasks, examples };
 }
 
 function detectTask2Type(prompt: string): string {
@@ -972,6 +996,7 @@ export function buildLibrary(): ParsedLibrary {
   const idioms: IdiomItem[] = [];
   const collocations: CollocationItem[] = [];
   const ieltsTask1: IeltsTask1Item[] = [];
+  const ieltsTask1Examples: IeltsTask1Example[] = [];
   const ieltsTask2: IeltsTask2Prompt[] = [];
 
   const preferredOrder = [
@@ -1011,39 +1036,42 @@ export function buildLibrary(): ParsedLibrary {
     const rows = parseCsvRows(csvText);
 
     if (name === 'IELTS Chart') {
-      const parsed = parseIeltsTask1Sheet(rows, name, 'chart', task1Images[name] || {});
-      ieltsTask1.push(...parsed);
+      const { tasks, examples } = parseIeltsTask1Sheet(rows, name, 'chart', task1Images[name] || {});
+      ieltsTask1.push(...tasks);
+      ieltsTask1Examples.push(...examples);
       decks.push({
         name,
         fileName,
-        count: parsed.length,
-        hasImages: parsed.some((t) => Boolean(t.imageUrl)),
+        count: tasks.length,
+        hasImages: tasks.some((t) => Boolean(t.imageUrl)),
         kind: 'special',
       });
       continue;
     }
     if (name === 'IELTS Process') {
-      const parsed = parseIeltsTask1Sheet(rows, name, 'process', task1Images[name] || {});
-      ieltsTask1.push(...parsed);
+      const { tasks, examples } = parseIeltsTask1Sheet(rows, name, 'process', task1Images[name] || {});
+      ieltsTask1.push(...tasks);
+      ieltsTask1Examples.push(...examples);
       decks.push({
         name,
         fileName,
-        count: parsed.length,
-        hasImages: parsed.some((t) => Boolean(t.imageUrl)),
-        kind: parsed.length ? 'special' : 'empty',
+        count: tasks.length,
+        hasImages: tasks.some((t) => Boolean(t.imageUrl)),
+        kind: tasks.length || examples.length ? 'special' : 'empty',
       });
       continue;
     }
     if (name === 'IELTS Map') {
-      const parsedTasks = parseIeltsTask1Sheet(rows, name, 'map', task1Images[name] || {});
-      ieltsTask1.push(...parsedTasks);
+      const { tasks, examples } = parseIeltsTask1Sheet(rows, name, 'map', task1Images[name] || {});
+      ieltsTask1.push(...tasks);
+      ieltsTask1Examples.push(...examples);
       const parsedMapVocab = parseGenericVocab(rows, name);
       vocab.push(...parsedMapVocab);
       decks.push({
         name,
         fileName,
         count: parsedMapVocab.length,
-        hasImages: parsedTasks.some((t) => Boolean(t.imageUrl)),
+        hasImages: tasks.some((t) => Boolean(t.imageUrl)),
         kind: parsedMapVocab.length > 0 ? 'vocab' : 'empty',
       });
       continue;
@@ -1137,6 +1165,7 @@ export function buildLibrary(): ParsedLibrary {
     idioms,
     collocations,
     ieltsTask1,
+    ieltsTask1Examples,
     ieltsTask2,
     loadedAt,
   };
