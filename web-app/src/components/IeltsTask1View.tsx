@@ -86,7 +86,7 @@ function renderHighlightedTemplate(text: string) {
       return (
         <span
           key={i}
-          className="mx-0.5 inline-block rounded-md bg-amber-100 px-1.5 py-0.5 font-bold text-amber-900 dark:bg-amber-950/80 dark:text-amber-200"
+          className="mx-0.5 inline rounded-md bg-amber-100 px-1.5 py-0.5 font-bold text-amber-900 box-decoration-clone dark:bg-amber-950/80 dark:text-amber-200"
         >
           {chunk}
         </span>
