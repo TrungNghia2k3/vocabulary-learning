@@ -21,6 +21,8 @@ import shutil
 import subprocess
 import sys
 from typing import Any
+import xml.etree.ElementTree as ET
+import zipfile
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -33,6 +35,84 @@ CONFIG_PATH = SYNC_DIR / "config.json"
 STATE_PATH = SYNC_DIR / "state.json"
 CONFLICTS_PATH = SYNC_DIR / "conflicts.json"
 BATCH_TMP_PATH = SYNC_DIR / "_batch_tmp.json"
+TASK1_IMAGE_SHEETS = {"IELTS Chart", "IELTS Map", "IELTS Map ", "IELTS Process"}
+TASK1_PUBLIC_DIR = BASE_DIR / "web-app" / "public" / "task1-images"
+TASK1_MANIFEST_PATH = BASE_DIR / "sheets" / "_task1_images.json"
+
+
+def extract_task1_images(spreadsheet_id: str) -> dict[str, dict[str, str]]:
+    """Export spreadsheet as .xlsx temporarily to extract embedded/pasted images on IELTS Task 1 sheets."""
+    tmp_xlsx = SYNC_DIR / "_media_tmp.xlsx"
+    manifest: dict[str, dict[str, str]] = {}
+    try:
+        run_gsheets(["readonly", "export", spreadsheet_id, str(tmp_xlsx), "--format", "xlsx"])
+        TASK1_PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(tmp_xlsx) as z:
+            names = set(z.namelist())
+            wb = ET.fromstring(z.read("xl/workbook.xml"))
+            wb_rels = {
+                r.attrib["Id"]: r.attrib["Target"]
+                for r in ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
+            }
+            ns = {"main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+            for sh in wb.findall(".//main:sheet", ns):
+                raw_name = sh.attrib["name"]
+                clean_name = raw_name.strip()
+                if raw_name not in TASK1_IMAGE_SHEETS and clean_name not in TASK1_IMAGE_SHEETS:
+                    continue
+                rid = sh.attrib["{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"]
+                target = wb_rels.get(rid, "")
+                rel_path = "xl/" + target.replace("worksheets/", "worksheets/_rels/") + ".rels"
+                if rel_path not in names:
+                    continue
+                s_rels = ET.fromstring(z.read(rel_path))
+                for rel in s_rels:
+                    if "drawing" not in rel.attrib.get("Target", ""):
+                        continue
+                    d_path = "xl/" + rel.attrib["Target"].replace("../", "")
+                    d_rel_path = d_path.replace("drawings/", "drawings/_rels/") + ".rels"
+                    if d_rel_path not in names:
+                        continue
+                    d_rels = {
+                        x.attrib["Id"]: x.attrib["Target"].replace("../", "xl/")
+                        for x in ET.fromstring(z.read(d_rel_path))
+                    }
+                    d_xml = ET.fromstring(z.read(d_path))
+                    for anc in list(d_xml):
+                        fr = anc.find(
+                            ".//{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}from"
+                        )
+                        row_el = (
+                            fr.find(
+                                "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}row"
+                            )
+                            if fr is not None
+                            else None
+                        )
+                        row_num = int(row_el.text) + 1 if row_el is not None and row_el.text else -1
+                        blip = anc.find(".//{http://schemas.openxmlformats.org/drawingml/2006/main}blip")
+                        embed_id = (
+                            blip.attrib.get(
+                                "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed",
+                                "",
+                            )
+                            if blip is not None
+                            else ""
+                        )
+                        img_path = d_rels.get(embed_id, "")
+                        if row_num > 0 and img_path and img_path in names:
+                            ext = Path(img_path).suffix.lower() or ".jpg"
+                            slug = re.sub(r"[^a-z0-9]+", "-", clean_name.lower()).strip("-")
+                            fname = f"{slug}-r{row_num}{ext}"
+                            (TASK1_PUBLIC_DIR / fname).write_bytes(z.read(img_path))
+                            manifest.setdefault(clean_name, {})[str(row_num)] = f"/task1-images/{fname}"
+        save_json(TASK1_MANIFEST_PATH, manifest)
+        total = sum(len(v) for v in manifest.values())
+        print(f"Đã trích xuất {total} ảnh đề bài IELTS Task 1 vào web-app/public/task1-images/")
+    finally:
+        if tmp_xlsx.exists():
+            tmp_xlsx.unlink()
+    return manifest
 
 EXCEL_ERROR_TOKENS = {"#NAME?", "#VALUE!", "#REF!", "#ERROR!", "#N/A", "#DIV/0!"}
 
@@ -548,9 +628,12 @@ def cmd_sync(
 
     # 3. Write updated / newly pulled CSV files locally
     if not push_only:
-        for title in list(plan["pull_cells"].keys()) + [t for t, _ in plan["new_remote_sheets"]]:
+        pulled_titles = list(plan["pull_cells"].keys()) + [t for t, _ in plan["new_remote_sheets"]]
+        for title in pulled_titles:
             fpath = sheets_dir / sheet_map[title]
             write_local_csv(fpath, plan["merged_grids"][title])
+        if any(t.strip() in TASK1_IMAGE_SHEETS for t in pulled_titles):
+            extract_task1_images(spreadsheet_id)
 
     # 4. Save updated config & state snapshot
     config["sheet_map"] = sheet_map
@@ -580,6 +663,7 @@ def main() -> int:
 
     sub.add_parser("pull", help="Tải toàn bộ dữ liệu từ Google Sheets về máy (ghi đè local)")
     sub.add_parser("status", help="Xem khác biệt giữa máy và Google Sheets (không ghi)")
+    sub.add_parser("extract-images", help="Trích xuất ảnh dán trực tiếp từ các tab IELTS Task 1")
 
     p_sync = sub.add_parser("sync", help="Đồng bộ 2 chiều theo từng ô (3-way merge)")
     p_sync.add_argument("--dry-run", action="store_true", help="Chỉ xem trước, không ghi")
@@ -607,6 +691,10 @@ def main() -> int:
 
     if args.command == "pull":
         cmd_pull(config)
+        extract_task1_images(config["spreadsheet_id"])
+        return 0
+    if args.command == "extract-images":
+        extract_task1_images(config["spreadsheet_id"])
         return 0
     if args.command == "status":
         return cmd_sync(config, dry_run=True, on_conflict="ask")

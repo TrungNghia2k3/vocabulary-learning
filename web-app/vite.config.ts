@@ -30,6 +30,16 @@ function vocabSheetsPlugin(): Plugin {
     return out;
   }
 
+  function loadTask1Images(): Record<string, Record<string, string>> {
+    const manifestPath = path.join(SHEETS_DIR, '_task1_images.json');
+    if (!fs.existsSync(manifestPath)) return {};
+    try {
+      return JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+    } catch {
+      return {};
+    }
+  }
+
   return {
     name: 'vite-plugin-vocab-sheets',
     resolveId(id) {
@@ -38,14 +48,16 @@ function vocabSheetsPlugin(): Plugin {
     load(id) {
       if (id === resolvedId) {
         const data = loadAllCsvs();
-        return `export const rawSheets = ${JSON.stringify(data)};\nexport const loadedAt = ${JSON.stringify(new Date().toISOString())};\n`;
+        const task1Images = loadTask1Images();
+        return `export const rawSheets = ${JSON.stringify(data)};\nexport const task1Images = ${JSON.stringify(task1Images)};\nexport const loadedAt = ${JSON.stringify(new Date().toISOString())};\n`;
       }
     },
     configureServer(server) {
       if (fs.existsSync(SHEETS_DIR)) {
         server.watcher.add(SHEETS_DIR);
         const reloadSheets = (filePath: string) => {
-          if (filePath.toLowerCase().endsWith('.csv')) {
+          const lower = filePath.toLowerCase();
+          if (lower.endsWith('.csv') || lower.endsWith('_task1_images.json')) {
             const mod = server.moduleGraph.getModuleById(resolvedId);
             if (mod) {
               server.moduleGraph.invalidateModule(mod);

@@ -1,9 +1,11 @@
 import Papa from 'papaparse';
-import { loadedAt, rawSheets } from 'virtual:vocab-sheets';
+import { loadedAt, rawSheets, task1Images } from 'virtual:vocab-sheets';
 import type {
   CollocationItem,
   DeckInfo,
   IdiomItem,
+  IeltsTask1Item,
+  IeltsTask1Section,
   ParsedLibrary,
   PhrasalVerbItem,
   PrepositionItem,
@@ -736,6 +738,132 @@ function parseCollocations(rows: string[][]): CollocationItem[] {
   return out;
 }
 
+function detectChartType(text: string, fallback: string): string {
+  const low = text.toLowerCase();
+  if (/bar\s+charts?/.test(low)) return 'Bar Chart';
+  if (/line\s+graphs?|line\s+charts?/.test(low)) return 'Line Graph';
+  if (/pie\s+charts?/.test(low)) return 'Pie Chart';
+  if (/\btable\b/.test(low)) return 'Table';
+  if (/\bmap\b/.test(low)) return 'Map';
+  if (/\bprocess\b|\bdiagram\b/.test(low)) return 'Process';
+  return fallback;
+}
+
+function makeTask1Title(intro: string, idx: number): string {
+  const cleaned = intro
+    .replace(
+      /^the\s+(?:bar\s+charts?|line\s+graphs?|pie\s+charts?|graphs?|charts?|tables?|maps?|diagrams?)\s+(?:below\s+)?(?:illustrates?|shows?|compares?|gives?\s+information\s+about|depicts?)\s+/i,
+      ''
+    )
+    .replace(/\.$/, '')
+    .trim();
+  if (!cleaned) return `IELTS Writing Task 1 #${idx}`;
+  const cap = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  return cap.length > 92 ? cap.slice(0, 89).trimEnd() + '…' : cap;
+}
+
+function parseIeltsTask1Charts(
+  rows: string[][],
+  sheetName: string,
+  embeddedMap: Record<string, string> = {}
+): IeltsTask1Item[] {
+  const headerIdx = rows.findIndex((r) => /^Word$/i.test(r[0] || ''));
+  if (headerIdx === -1) return [];
+  const header = rows[headerIdx] || [];
+  const meaningCol = header.findIndex((c) => /meaning|nghĩa/i.test(c));
+  const partCol = header.findIndex((c) => /^part$/i.test(c));
+  const imgCol = header.findIndex((c) => /image|ảnh/i.test(c));
+
+  type RawEntry = { rowNum: number; text: string; meaning?: string; part: string; img?: string };
+  const blocks: RawEntry[][] = [];
+  let current: RawEntry[] = [];
+
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const r = rows[i];
+    const text = (r[0] || '').trim();
+    if (!text) {
+      if (current.length > 0) {
+        blocks.push(current);
+        current = [];
+      }
+      continue;
+    }
+    const rowNum = i + 1; // 1-based Google Sheet row number
+    const meaning = meaningCol >= 0 ? (r[meaningCol] || '').trim() || undefined : undefined;
+    const part = (partCol >= 0 ? (r[partCol] || '').trim() : '') || 'Sample';
+    const rawImg = imgCol >= 0 ? (r[imgCol] || '').trim() : '';
+    const img = isUrl(rawImg) ? rawImg : embeddedMap[String(rowNum)];
+
+    // If a brand new Introduction starts after Body 1/Body 2 without a blank separator, split cleanly
+    if (
+      /^Introduction$/i.test(part) &&
+      current.some((e) => !/^Introduction$/i.test(e.part))
+    ) {
+      blocks.push(current);
+      current = [];
+    }
+    current.push({ rowNum, text, meaning, part, img });
+  }
+  if (current.length > 0) blocks.push(current);
+
+  const partOrder = ['Introduction', 'Overview', 'Body 1', 'Body 2'];
+
+  return blocks.map((block, idx) => {
+    const sectionsMap = new Map<string, IeltsTask1Section>();
+    let imageUrl: string | undefined;
+
+    for (const entry of block) {
+      if (!imageUrl && entry.img) imageUrl = entry.img;
+      const existing = sectionsMap.get(entry.part);
+      if (existing) {
+        existing.sentences.push({ text: entry.text, meaning: entry.meaning });
+      } else {
+        sectionsMap.set(entry.part, {
+          part: entry.part,
+          sentences: [{ text: entry.text, meaning: entry.meaning }],
+        });
+      }
+    }
+
+    // Fallback: match any embedded image whose row falls inside this block's row span
+    if (!imageUrl) {
+      const minR = block[0].rowNum;
+      const maxR = block[block.length - 1].rowNum;
+      for (const [rKey, url] of Object.entries(embeddedMap)) {
+        const rn = Number(rKey);
+        if (rn >= minR - 1 && rn <= maxR) {
+          imageUrl = url;
+          break;
+        }
+      }
+    }
+
+    const sections = Array.from(sectionsMap.values()).sort((a, b) => {
+      const ia = partOrder.indexOf(a.part);
+      const ib = partOrder.indexOf(b.part);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return 0;
+    });
+
+    const firstIntro =
+      sections.find((s) => s.part === 'Introduction')?.sentences[0]?.text ||
+      block[0]?.text ||
+      '';
+
+    return {
+      id: `task1::${sheetName}::${idx + 1}`,
+      title: makeTask1Title(firstIntro, idx + 1),
+      sourceSheet: sheetName,
+      taskType: 'chart',
+      chartType: detectChartType(firstIntro, 'Chart'),
+      imageUrl,
+      sections,
+    };
+  });
+}
+
 const SKIP_SHEETS = new Set(['Template']);
 
 export function buildLibrary(): ParsedLibrary {
@@ -745,6 +873,7 @@ export function buildLibrary(): ParsedLibrary {
   const prepositions: PrepositionItem[] = [];
   const idioms: IdiomItem[] = [];
   const collocations: CollocationItem[] = [];
+  const ieltsTask1: IeltsTask1Item[] = [];
 
   const preferredOrder = [
     'Comprehensible Input',
@@ -752,6 +881,7 @@ export function buildLibrary(): ParsedLibrary {
     'Books',
     'IELTS Reading',
     'IELTS Writing Task 2',
+    'IELTS Chart',
     'IELTS Listening',
     'IELTS Map',
     'Adjective',
@@ -780,6 +910,18 @@ export function buildLibrary(): ParsedLibrary {
     if (SKIP_SHEETS.has(name)) continue;
     const rows = parseCsvRows(csvText);
 
+    if (name === 'IELTS Chart') {
+      const parsed = parseIeltsTask1Charts(rows, name, task1Images[name] || {});
+      ieltsTask1.push(...parsed);
+      decks.push({
+        name,
+        fileName,
+        count: parsed.length,
+        hasImages: parsed.some((t) => Boolean(t.imageUrl)),
+        kind: 'special',
+      });
+      continue;
+    }
     if (name === 'Phrasal Verbs Library') {
       const parsed = parsePhrasalVerbsLibrary(rows);
       phrasalVerbs.push(...parsed);
@@ -839,6 +981,27 @@ export function buildLibrary(): ParsedLibrary {
     }
 
     vocab.push(...parsedVocab);
+    if (name === 'IELTS Map' && parsedVocab.length > 0) {
+      const mapImgMap = task1Images['IELTS Map'] || {};
+      const firstMapImg = Object.values(mapImgMap)[0];
+      ieltsTask1.push({
+        id: 'task1::IELTS Map::1',
+        title: 'IELTS Map — Cụm câu mô tả bản đồ & thay đổi quy hoạch',
+        sourceSheet: name,
+        taskType: 'map',
+        chartType: 'Map',
+        imageUrl: firstMapImg,
+        sections: [
+          {
+            part: 'Map Expressions',
+            sentences: parsedVocab.map((v) => ({
+              text: v.word,
+              meaning: v.meaning,
+            })),
+          },
+        ],
+      });
+    }
     decks.push({
       name,
       fileName,
@@ -855,6 +1018,7 @@ export function buildLibrary(): ParsedLibrary {
     prepositions,
     idioms,
     collocations,
+    ieltsTask1,
     loadedAt,
   };
 }

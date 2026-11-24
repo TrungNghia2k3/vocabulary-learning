@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   BookOpen,
   Brain,
   CalendarDays,
@@ -127,6 +128,13 @@ export function Dashboard({
     icon: typeof Link2;
     subtitle: string;
   }> = [
+    {
+      mode: 'ielts-task1',
+      title: 'IELTS Writing Task 1',
+      count: library.ieltsTask1.length,
+      icon: BarChart3,
+      subtitle: 'Biểu đồ đề bài có ảnh, phân tích 4 phần & luyện viết',
+    },
     {
       mode: 'prepositions',
       title: 'Giới từ (Prepositions)',

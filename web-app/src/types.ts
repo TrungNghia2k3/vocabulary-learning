@@ -12,7 +12,8 @@ export type AppMode =
   | 'prepositions'
   | 'phrasal-verbs'
   | 'idioms'
-  | 'collocations';
+  | 'collocations'
+  | 'ielts-task1';
 
 export interface WordPair {
   word: string;
@@ -121,6 +122,26 @@ export interface DeckInfo {
   kind: 'vocab' | 'special' | 'empty';
 }
 
+export interface IeltsTask1Sentence {
+  text: string;
+  meaning?: string;
+}
+
+export interface IeltsTask1Section {
+  part: string;
+  sentences: IeltsTask1Sentence[];
+}
+
+export interface IeltsTask1Item {
+  id: string;
+  title: string;
+  sourceSheet: string;
+  taskType: 'chart' | 'map' | 'process';
+  chartType: string;
+  imageUrl?: string;
+  sections: IeltsTask1Section[];
+}
+
 export interface ParsedLibrary {
   vocab: VocabItem[];
   decks: DeckInfo[];
@@ -128,5 +149,6 @@ export interface ParsedLibrary {
   prepositions: PrepositionItem[];
   idioms: IdiomItem[];
   collocations: CollocationItem[];
+  ieltsTask1: IeltsTask1Item[];
   loadedAt: string;
 }

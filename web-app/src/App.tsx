@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  BarChart3,
   Brain,
   CalendarDays,
   Camera,
@@ -23,6 +24,7 @@ import { ImageQuizView } from './components/ImageQuizView';
 import { SpellingView } from './components/SpellingView';
 import { TodayWordsView } from './components/TodayWordsView';
 import { SpecialPracticeView } from './components/SpecialPracticeView';
+import { IeltsTask1View } from './components/IeltsTask1View';
 import type { Accent, AppMode } from './types';
 import {
   getStudyStreak,
@@ -46,6 +48,7 @@ const NAV_TABS: Array<{ id: AppMode; label: string; icon: typeof Home }> = [
   { id: 'syn-ant-quiz', label: 'Đồng/Trái nghĩa', icon: Brain },
   { id: 'spelling', label: 'Chính tả', icon: Keyboard },
   { id: 'today', label: 'Hôm nay', icon: CalendarDays },
+  { id: 'ielts-task1', label: 'IELTS Task 1', icon: BarChart3 },
   { id: 'prepositions', label: 'Giới từ', icon: Link2 },
   { id: 'phrasal-verbs', label: 'Phrasal Verbs', icon: GitBranch },
   { id: 'idioms', label: 'Idioms', icon: MessageSquareQuote },
@@ -177,7 +180,7 @@ export default function App() {
 
       {/* Topic Filter Ribbon when viewing a multi-topic deck in any study mode */}
       {mode !== 'dashboard' &&
-        !['prepositions', 'phrasal-verbs', 'idioms', 'collocations'].includes(mode) &&
+        !['prepositions', 'phrasal-verbs', 'idioms', 'collocations', 'ielts-task1'].includes(mode) &&
         selectedDeck !== 'ALL' &&
         availableTopics.length > 1 && (
           <div className="border-b border-slate-200/60 bg-indigo-50/40 dark:border-slate-800 dark:bg-indigo-950/20">
@@ -299,6 +302,10 @@ export default function App() {
             onMarkLearned={handleMarkLearned}
             accent={accent}
           />
+        )}
+
+        {mode === 'ielts-task1' && (
+          <IeltsTask1View items={library.ieltsTask1} accent={accent} />
         )}
 
         {(mode === 'prepositions' ||
