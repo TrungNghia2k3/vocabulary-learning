@@ -16,6 +16,7 @@ import type {
   PrepositionItem,
   PrepositionMistake,
   PrepositionUse,
+  SpeakingPart,
   VocabItem,
   WordDefinition,
   WordPair,
@@ -1186,10 +1187,18 @@ function parseIeltsSpeaking(rows: string[][]): IeltsSpeakingItem[] {
     }
 
     const rawPart = partCol >= 0 ? (r[partCol] || '').trim() : '';
-    const isPart2 = /part\s*2/i.test(rawPart) || /^describe\b/i.test(question);
-    const part: 'Part 1 / 3' | 'Part 2 (Cue Card)' = isPart2
-      ? 'Part 2 (Cue Card)'
-      : 'Part 1 / 3';
+    let part: SpeakingPart;
+    if (/^(?:part\s*)?1\b/i.test(rawPart)) {
+      part = 'Part 1';
+    } else if (/^(?:part\s*)?2\b/i.test(rawPart)) {
+      part = 'Part 2';
+    } else if (/^(?:part\s*)?3\b/i.test(rawPart)) {
+      part = 'Part 3';
+    } else if (/^describe\b/i.test(question)) {
+      part = 'Part 2';
+    } else {
+      part = 'Chưa gắn Part';
+    }
 
     out.push({
       id: `speaking::${out.length + 1}`,

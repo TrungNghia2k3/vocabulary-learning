@@ -182,13 +182,15 @@ export interface IeltsTask2Prompt {
   sampleSections: IeltsTask2Section[];
 }
 
+export type SpeakingPart = 'Part 1' | 'Part 2' | 'Part 3' | 'Chưa gắn Part';
+
 export interface IeltsSpeakingItem {
   id: string;
   question: string;
   questionVi?: string;
   answer: string;
   sentences: string[];
-  part: 'Part 1 / 3' | 'Part 2 (Cue Card)';
+  part: SpeakingPart;
   topic?: string;
 }
 

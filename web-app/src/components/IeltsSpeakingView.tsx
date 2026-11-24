@@ -22,7 +22,7 @@ import {
   Trash2,
   Volume2,
 } from 'lucide-react';
-import type { Accent, IeltsSpeakingItem } from '../types';
+import type { Accent, IeltsSpeakingItem, SpeakingPart } from '../types';
 import { speakText, stopSpeaking } from '../utils/speech';
 
 interface IeltsSpeakingViewProps {
@@ -30,10 +30,31 @@ interface IeltsSpeakingViewProps {
   accent: Accent;
 }
 
-type FilterMode = 'ALL' | 'Part 1 / 3' | 'Part 2 (Cue Card)' | 'unmastered' | 'mastered';
+type FilterMode = 'ALL' | SpeakingPart | 'unmastered' | 'mastered';
 type ScriptVisibility = 'full' | 'keywords' | 'hidden';
 type PlaybackMode = 'idle' | 'single' | 'loop-sentence' | 'auto-shadow' | 'full-continuous';
 type ExamPhase = 'idle' | 'prep' | 'speaking' | 'done';
+
+function getSpeakingPartBadge(part: SpeakingPart, solid = false): string {
+  if (part === 'Part 1') {
+    return solid
+      ? 'bg-sky-600 text-white'
+      : 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300';
+  }
+  if (part === 'Part 2') {
+    return solid
+      ? 'bg-amber-500 text-white'
+      : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
+  }
+  if (part === 'Part 3') {
+    return solid
+      ? 'bg-violet-600 text-white'
+      : 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300';
+  }
+  return solid
+    ? 'bg-slate-600 text-white'
+    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+}
 
 interface BrowserSpeechRecognitionEvent {
   resultIndex: number;
@@ -203,8 +224,15 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
   const visibleItems = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter((item) => {
-      if (filter === 'Part 1 / 3' && item.part !== 'Part 1 / 3') return false;
-      if (filter === 'Part 2 (Cue Card)' && item.part !== 'Part 2 (Cue Card)') return false;
+      if (
+        (filter === 'Part 1' ||
+          filter === 'Part 2' ||
+          filter === 'Part 3' ||
+          filter === 'Chưa gắn Part') &&
+        item.part !== filter
+      ) {
+        return false;
+      }
       if (filter === 'mastered' && !masteredIds.has(item.id)) return false;
       if (filter === 'unmastered' && masteredIds.has(item.id)) return false;
       if (!q) return true;
@@ -536,7 +564,9 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
     stopExamTimer();
     setScriptMode('hidden');
 
-    const isPart2 = activeItem.part === 'Part 2 (Cue Card)';
+    const isPart2 = activeItem.part === 'Part 2';
+    const speakDuration =
+      activeItem.part === 'Part 1' ? 30 : activeItem.part === 'Part 3' ? 60 : 45;
     speakText(activeItem.question, accent, 0.95);
 
     if (isPart2) {
@@ -569,8 +599,8 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
       }, 1000);
     } else {
       setExamPhase('speaking');
-      setExamSecondsLeft(45);
-      let left = 45;
+      setExamSecondsLeft(speakDuration);
+      let left = speakDuration;
       examTimerRef.current = window.setInterval(() => {
         left -= 1;
         if (left <= 0) {
@@ -612,8 +642,10 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
     setTimeout(() => setCopiedKey((c) => (c === key ? null : c)), 1400);
   };
 
-  const part1Count = items.filter((i) => i.part === 'Part 1 / 3').length;
-  const part2Count = items.filter((i) => i.part === 'Part 2 (Cue Card)').length;
+  const part1Count = items.filter((i) => i.part === 'Part 1').length;
+  const part2Count = items.filter((i) => i.part === 'Part 2').length;
+  const part3Count = items.filter((i) => i.part === 'Part 3').length;
+  const untaggedCount = items.filter((i) => i.part === 'Chưa gắn Part').length;
   const masteredCount = items.filter((i) => masteredIds.has(i.id)).length;
 
   const sttTargetText =
@@ -674,11 +706,15 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
             {(
               [
                 { id: 'ALL', label: `Tất cả (${items.length})` },
-                { id: 'Part 1 / 3', label: `Part 1 & 3 (${part1Count})` },
-                { id: 'Part 2 (Cue Card)', label: `Part 2 Cue Card (${part2Count})` },
+                { id: 'Part 1', label: `Part 1 (${part1Count})` },
+                { id: 'Part 2', label: `Part 2 (${part2Count})` },
+                { id: 'Part 3', label: `Part 3 (${part3Count})` },
+                ...(untaggedCount > 0
+                  ? [{ id: 'Chưa gắn Part' as const, label: `Chưa gắn Part (${untaggedCount})` }]
+                  : []),
                 { id: 'unmastered', label: `Chưa luyện (${items.length - masteredCount})` },
                 { id: 'mastered', label: `Đã luyện (${masteredCount})` },
-              ] as const
+              ] as Array<{ id: FilterMode; label: string }>
             ).map((f) => (
               <button
                 key={f.id}
@@ -735,13 +771,11 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
                     <div className="flex items-center gap-1.5">
                       <span className="text-[10px] font-extrabold text-slate-400">#{origIndex}</span>
                       <span
-                        className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                          item.part === 'Part 2 (Cue Card)'
-                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                            : 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
-                        }`}
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${getSpeakingPartBadge(
+                          item.part
+                        )}`}
                       >
-                        {item.part === 'Part 2 (Cue Card)' ? 'Part 2' : 'Part 1/3'}
+                        {item.part}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -768,13 +802,12 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
               <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-extrabold ${
-                      activeItem.part === 'Part 2 (Cue Card)'
-                        ? 'bg-amber-500 text-white'
-                        : 'bg-indigo-600 text-white'
-                    }`}
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-extrabold ${getSpeakingPartBadge(
+                      activeItem.part,
+                      true
+                    )}`}
                   >
-                    {activeItem.part}
+                    {activeItem.part === 'Part 2' ? 'Part 2 (Cue Card)' : activeItem.part}
                   </span>
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                     {activeItem.sentences.length} câu tách sẵn để Shadowing
@@ -821,7 +854,14 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
                 {examPhase === 'idle' && (
                   <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                     Chế độ thi thử: tự ẩn đáp án, đọc câu hỏi & bấm giờ (
-                    {activeItem.part === 'Part 2 (Cue Card)' ? '1 phút chuẩn bị → 2 phút nói' : '45 giây trả lời'})
+                    {activeItem.part === 'Part 2'
+                      ? '1 phút chuẩn bị → 2 phút nói'
+                      : activeItem.part === 'Part 1'
+                        ? '30 giây trả lời'
+                        : activeItem.part === 'Part 3'
+                          ? '60 giây trả lời'
+                          : '45 giây trả lời'}
+                    )
                   </span>
                 )}
                 {examPhase === 'prep' && (
