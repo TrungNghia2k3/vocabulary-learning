@@ -14,7 +14,8 @@ export type AppMode =
   | 'idioms'
   | 'collocations'
   | 'ielts-task1'
-  | 'ielts-task2';
+  | 'ielts-task2'
+  | 'ielts-speaking';
 
 export interface WordPair {
   word: string;
@@ -181,6 +182,16 @@ export interface IeltsTask2Prompt {
   sampleSections: IeltsTask2Section[];
 }
 
+export interface IeltsSpeakingItem {
+  id: string;
+  question: string;
+  questionVi?: string;
+  answer: string;
+  sentences: string[];
+  part: 'Part 1 / 3' | 'Part 2 (Cue Card)';
+  topic?: string;
+}
+
 export interface ParsedLibrary {
   vocab: VocabItem[];
   decks: DeckInfo[];
@@ -192,5 +203,6 @@ export interface ParsedLibrary {
   ieltsTask1Examples: IeltsTask1Example[];
   ieltsTask2: IeltsTask2Prompt[];
   ieltsTask2Formats: IeltsTask2Format[];
+  ieltsSpeaking: IeltsSpeakingItem[];
   loadedAt: string;
 }

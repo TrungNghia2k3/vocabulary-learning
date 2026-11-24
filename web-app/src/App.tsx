@@ -13,6 +13,7 @@ import {
   Link2,
   List,
   MessageSquareQuote,
+  Mic,
   Puzzle,
 } from 'lucide-react';
 import { buildLibrary } from './data/sheetParser';
@@ -27,6 +28,7 @@ import { TodayWordsView } from './components/TodayWordsView';
 import { SpecialPracticeView } from './components/SpecialPracticeView';
 import { IeltsTask1View } from './components/IeltsTask1View';
 import { IeltsTask2View } from './components/IeltsTask2View';
+import { IeltsSpeakingView } from './components/IeltsSpeakingView';
 import type { Accent, AppMode } from './types';
 import {
   getStudyStreak,
@@ -52,6 +54,7 @@ const NAV_TABS: Array<{ id: AppMode; label: string; icon: typeof Home }> = [
   { id: 'today', label: 'Hôm nay', icon: CalendarDays },
   { id: 'ielts-task1', label: 'IELTS Task 1', icon: BarChart3 },
   { id: 'ielts-task2', label: 'IELTS Task 2', icon: FilePenLine },
+  { id: 'ielts-speaking', label: 'IELTS Speaking', icon: Mic },
   { id: 'prepositions', label: 'Giới từ', icon: Link2 },
   { id: 'phrasal-verbs', label: 'Phrasal Verbs', icon: GitBranch },
   { id: 'idioms', label: 'Idioms', icon: MessageSquareQuote },
@@ -190,6 +193,7 @@ export default function App() {
           'collocations',
           'ielts-task1',
           'ielts-task2',
+          'ielts-speaking',
         ].includes(mode) &&
         selectedDeck !== 'ALL' &&
         availableTopics.length > 1 && (
@@ -328,6 +332,10 @@ export default function App() {
             formats={library.ieltsTask2Formats}
             accent={accent}
           />
+        )}
+
+        {mode === 'ielts-speaking' && (
+          <IeltsSpeakingView items={library.ieltsSpeaking} accent={accent} />
         )}
 
         {(mode === 'prepositions' ||

@@ -4,6 +4,7 @@ import type {
   CollocationItem,
   DeckInfo,
   IdiomItem,
+  IeltsSpeakingItem,
   IeltsTask1Example,
   IeltsTask1Item,
   IeltsTask1Section,
@@ -1133,6 +1134,76 @@ function parseIeltsWritingTask2(
   return { prompts, formats, vocab };
 }
 
+function splitSpeakingSentences(answer: string): string[] {
+  // Clean accidental doubled quotes between sentences (e.g. `well-trained.""Besides`)
+  const normalized = answer
+    .replace(/\r\n/g, '\n')
+    .replace(/([.!?])["“”]{1,2}([A-Z])/g, '$1 $2')
+    .replace(/\u2019/g, "'")
+    .trim();
+  if (!normalized) return [];
+
+  const result: string[] = [];
+  const paragraphs = normalized.split(/\n+/).map((p) => p.trim()).filter(Boolean);
+
+  for (const para of paragraphs) {
+    // Split after sentence-ending '.', '!', or '?' followed by space/end, preserving common abbreviations
+    const protectedPara = para.replace(
+      /\b(Mr|Mrs|Ms|Dr|Prof|St|Sr|Jr|vs|etc|e\.g|i\.e)\./gi,
+      '$1__DOT__'
+    );
+    const matches = protectedPara.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [protectedPara];
+    for (const m of matches) {
+      const sentence = m.replace(/__DOT__/g, '.').replace(/\s+/g, ' ').trim();
+      if (sentence) result.push(sentence);
+    }
+  }
+  return result;
+}
+
+function parseIeltsSpeaking(rows: string[][]): IeltsSpeakingItem[] {
+  const headerIdx = rows.findIndex((r) => /^Question$/i.test(r[0] || ''));
+  if (headerIdx === -1) return [];
+  const header = rows[headerIdx] || [];
+  const answerCol = header.findIndex((c) => /^Answer$/i.test(c));
+  const partCol = header.findIndex((c) => /^Part$/i.test(c));
+  const topicCol = header.findIndex((c) => /^(Topic|Chủ đề)/i.test(c));
+
+  const out: IeltsSpeakingItem[] = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const r = rows[i];
+    const rawQuestion = (r[0] || '').trim();
+    const answer = (answerCol >= 0 ? r[answerCol] : r[1] || '').trim();
+    if (!rawQuestion && !answer) continue;
+
+    // Separate optional Vietnamese translation appended after " - "
+    let question = rawQuestion;
+    let questionVi: string | undefined;
+    const viSplit = rawQuestion.match(/^(.+?[?.!])\s*[-–—]\s*(.+)$/);
+    if (viSplit) {
+      question = viSplit[1].trim();
+      questionVi = viSplit[2].trim();
+    }
+
+    const rawPart = partCol >= 0 ? (r[partCol] || '').trim() : '';
+    const isPart2 = /part\s*2/i.test(rawPart) || /^describe\b/i.test(question);
+    const part: 'Part 1 / 3' | 'Part 2 (Cue Card)' = isPart2
+      ? 'Part 2 (Cue Card)'
+      : 'Part 1 / 3';
+
+    out.push({
+      id: `speaking::${out.length + 1}`,
+      question,
+      questionVi,
+      answer,
+      sentences: splitSpeakingSentences(answer),
+      part,
+      topic: topicCol >= 0 ? (r[topicCol] || '').trim() || undefined : undefined,
+    });
+  }
+  return out;
+}
+
 const SKIP_SHEETS = new Set(['Template']);
 
 export function buildLibrary(): ParsedLibrary {
@@ -1146,12 +1217,14 @@ export function buildLibrary(): ParsedLibrary {
   const ieltsTask1Examples: IeltsTask1Example[] = [];
   const ieltsTask2: IeltsTask2Prompt[] = [];
   const ieltsTask2Formats: IeltsTask2Format[] = [];
+  const ieltsSpeaking: IeltsSpeakingItem[] = [];
 
   const preferredOrder = [
     'Comprehensible Input',
     'Core Vocabulary',
     'Books',
     'IELTS Reading',
+    'IELTS Speaking',
     'IELTS Writing Task 2',
     'IELTS Chart',
     'IELTS Map',
@@ -1221,6 +1294,18 @@ export function buildLibrary(): ParsedLibrary {
         count: parsedMapVocab.length,
         hasImages: tasks.some((t) => Boolean(t.imageUrl)),
         kind: parsedMapVocab.length > 0 ? 'vocab' : 'empty',
+      });
+      continue;
+    }
+    if (name === 'IELTS Speaking') {
+      const parsed = parseIeltsSpeaking(rows);
+      ieltsSpeaking.push(...parsed);
+      decks.push({
+        name,
+        fileName,
+        count: parsed.length,
+        hasImages: false,
+        kind: parsed.length > 0 ? 'special' : 'empty',
       });
       continue;
     }
@@ -1317,6 +1402,7 @@ export function buildLibrary(): ParsedLibrary {
     ieltsTask1Examples,
     ieltsTask2,
     ieltsTask2Formats,
+    ieltsSpeaking,
     loadedAt,
   };
 }

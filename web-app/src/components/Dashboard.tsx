@@ -14,6 +14,7 @@ import {
   Link2,
   List,
   MessageSquareQuote,
+  Mic,
   Puzzle,
   Sparkles,
   TrendingUp,
@@ -142,6 +143,13 @@ export function Dashboard({
       count: library.ieltsTask2.length,
       icon: FilePenLine,
       subtitle: 'Đề bài luận, khung bài mẫu (Format), kho cụm từ Band 7–8+ & luyện viết',
+    },
+    {
+      mode: 'ielts-speaking',
+      title: 'IELTS Speaking',
+      count: library.ieltsSpeaking.length,
+      icon: Mic,
+      subtitle: 'Nghe lại từng câu để Shadowing, ghi âm đối chiếu, so khớp phát âm & thi thử',
     },
     {
       mode: 'prepositions',
