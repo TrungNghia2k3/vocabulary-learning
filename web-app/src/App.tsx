@@ -4,6 +4,7 @@ import {
   Brain,
   CalendarDays,
   Camera,
+  FilePenLine,
   GitBranch,
   HelpCircle,
   Home,
@@ -25,6 +26,7 @@ import { SpellingView } from './components/SpellingView';
 import { TodayWordsView } from './components/TodayWordsView';
 import { SpecialPracticeView } from './components/SpecialPracticeView';
 import { IeltsTask1View } from './components/IeltsTask1View';
+import { IeltsTask2View } from './components/IeltsTask2View';
 import type { Accent, AppMode } from './types';
 import {
   getStudyStreak,
@@ -49,6 +51,7 @@ const NAV_TABS: Array<{ id: AppMode; label: string; icon: typeof Home }> = [
   { id: 'spelling', label: 'Chính tả', icon: Keyboard },
   { id: 'today', label: 'Hôm nay', icon: CalendarDays },
   { id: 'ielts-task1', label: 'IELTS Task 1', icon: BarChart3 },
+  { id: 'ielts-task2', label: 'IELTS Task 2', icon: FilePenLine },
   { id: 'prepositions', label: 'Giới từ', icon: Link2 },
   { id: 'phrasal-verbs', label: 'Phrasal Verbs', icon: GitBranch },
   { id: 'idioms', label: 'Idioms', icon: MessageSquareQuote },
@@ -180,7 +183,14 @@ export default function App() {
 
       {/* Topic Filter Ribbon when viewing a multi-topic deck in any study mode */}
       {mode !== 'dashboard' &&
-        !['prepositions', 'phrasal-verbs', 'idioms', 'collocations', 'ielts-task1'].includes(mode) &&
+        ![
+          'prepositions',
+          'phrasal-verbs',
+          'idioms',
+          'collocations',
+          'ielts-task1',
+          'ielts-task2',
+        ].includes(mode) &&
         selectedDeck !== 'ALL' &&
         availableTopics.length > 1 && (
           <div className="border-b border-slate-200/60 bg-indigo-50/40 dark:border-slate-800 dark:bg-indigo-950/20">
@@ -306,6 +316,10 @@ export default function App() {
 
         {mode === 'ielts-task1' && (
           <IeltsTask1View items={library.ieltsTask1} accent={accent} />
+        )}
+
+        {mode === 'ielts-task2' && (
+          <IeltsTask2View prompts={library.ieltsTask2} accent={accent} />
         )}
 
         {(mode === 'prepositions' ||

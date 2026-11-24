@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Camera,
   CheckCircle2,
+  FilePenLine,
   GitBranch,
   HelpCircle,
   Image as ImageIcon,
@@ -133,7 +134,14 @@ export function Dashboard({
       title: 'IELTS Writing Task 1',
       count: library.ieltsTask1.length,
       icon: BarChart3,
-      subtitle: 'Biểu đồ đề bài có ảnh, phân tích 4 phần & luyện viết',
+      subtitle: 'Charts, Maps & Process kèm ảnh đề bài, phân tích 4 phần & luyện viết',
+    },
+    {
+      mode: 'ielts-task2',
+      title: 'IELTS Writing Task 2',
+      count: library.ieltsTask2.length,
+      icon: FilePenLine,
+      subtitle: 'Đề bài luận, kho cụm từ Band 7–8+ & luyện viết tích xanh tự động',
     },
     {
       mode: 'prepositions',

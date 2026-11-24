@@ -6,6 +6,7 @@ import type {
   IdiomItem,
   IeltsTask1Item,
   IeltsTask1Section,
+  IeltsTask2Prompt,
   ParsedLibrary,
   PhrasalVerbItem,
   PrepositionItem,
@@ -762,9 +763,10 @@ function makeTask1Title(intro: string, idx: number): string {
   return cap.length > 92 ? cap.slice(0, 89).trimEnd() + '…' : cap;
 }
 
-function parseIeltsTask1Charts(
+function parseIeltsTask1Sheet(
   rows: string[][],
   sheetName: string,
+  taskType: 'chart' | 'map' | 'process',
   embeddedMap: Record<string, string> = {}
 ): IeltsTask1Item[] {
   const headerIdx = rows.findIndex((r) => /^Word$/i.test(r[0] || ''));
@@ -807,6 +809,8 @@ function parseIeltsTask1Charts(
   if (current.length > 0) blocks.push(current);
 
   const partOrder = ['Introduction', 'Overview', 'Body 1', 'Body 2'];
+  const fallbackLabel =
+    taskType === 'map' ? 'Map' : taskType === 'process' ? 'Process' : 'Chart';
 
   return blocks.map((block, idx) => {
     const sectionsMap = new Map<string, IeltsTask1Section>();
@@ -849,6 +853,7 @@ function parseIeltsTask1Charts(
 
     const firstIntro =
       sections.find((s) => s.part === 'Introduction')?.sentences[0]?.text ||
+      sections.find((s) => s.part === 'Overview')?.sentences[0]?.text ||
       block[0]?.text ||
       '';
 
@@ -856,12 +861,105 @@ function parseIeltsTask1Charts(
       id: `task1::${sheetName}::${idx + 1}`,
       title: makeTask1Title(firstIntro, idx + 1),
       sourceSheet: sheetName,
-      taskType: 'chart',
-      chartType: detectChartType(firstIntro, 'Chart'),
+      taskType,
+      chartType:
+        taskType === 'map'
+          ? 'Map'
+          : taskType === 'process'
+            ? 'Process'
+            : detectChartType(firstIntro, fallbackLabel),
       imageUrl,
       sections,
     };
   });
+}
+
+function detectTask2Type(prompt: string): string {
+  const low = prompt.toLowerCase();
+  if (/agree or disagree|support or oppose/.test(low)) return 'Opinion (Agree / Disagree)';
+  if (/discuss both/.test(low)) return 'Discussion (Both Views)';
+  if (/positive or negative/.test(low)) return 'Positive / Negative';
+  if (/advantages? and disadvantages?/.test(low)) return 'Advantages / Disadvantages';
+  if (/causes?.*solutions?|problems?.*solutions?/.test(low)) return 'Problem / Solution';
+  return 'IELTS Task 2 Essay';
+}
+
+function makeTask2Title(prompt: string, idx: number): string {
+  const firstSentence = prompt.split(/(?<=[.?])\s+/)[0] || prompt;
+  const trimmed = firstSentence
+    .replace(/^Some people (?:think|believe|argue) that\s+/i, '')
+    .replace(/\.$/, '')
+    .trim();
+  if (!trimmed) return `Writing Task 2 Topic #${idx}`;
+  const cap = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  return cap.length > 78 ? cap.slice(0, 75).trimEnd() + '…' : cap;
+}
+
+function parseIeltsWritingTask2(
+  rows: string[][],
+  deck: string
+): { prompts: IeltsTask2Prompt[]; vocab: VocabItem[] } {
+  const headerIdx = rows.findIndex((r) => /^Word$/i.test(r[0] || ''));
+  if (headerIdx === -1) return { prompts: [], vocab: [] };
+  const header = rows[headerIdx] || [];
+  const meaningCol = header.findIndex((c) => /meaning|nghĩa/i.test(c));
+  const topicCol = header.findIndex((c) => /^(topic|prompt|chủ đề)/i.test(c));
+
+  const prompts: IeltsTask2Prompt[] = [];
+  const vocab: VocabItem[] = [];
+  let currentPrompt: IeltsTask2Prompt | null = null;
+
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const r = rows[i];
+    const phrase = (r[0] || '').trim();
+    const meaning = meaningCol >= 0 ? (r[meaningCol] || '').trim() : (r[1] || '').trim();
+    const topicText = topicCol >= 0 ? (r[topicCol] || '').trim() : '';
+
+    if (topicText) {
+      currentPrompt = {
+        id: `task2::${prompts.length + 1}`,
+        title: makeTask2Title(topicText, prompts.length + 1),
+        prompt: topicText,
+        questionType: detectTask2Type(topicText),
+        expressions: [],
+      };
+      prompts.push(currentPrompt);
+    }
+
+    if (!phrase) continue;
+    if (!currentPrompt) {
+      currentPrompt = {
+        id: 'task2::general',
+        title: 'General Writing Task 2 Expressions',
+        prompt: 'General academic expressions for IELTS Writing Task 2',
+        questionType: 'General',
+        expressions: [],
+      };
+      prompts.push(currentPrompt);
+    }
+
+    currentPrompt.expressions.push({
+      id: `t2-expr::${i}`,
+      phrase,
+      meaning,
+    });
+
+    vocab.push({
+      id: makeId(deck, phrase, i),
+      word: phrase,
+      deck,
+      section: currentPrompt.title,
+      meaning,
+      definitions: [],
+      examples: [],
+      collocations: [],
+      synonyms: [],
+      antonyms: [],
+      wordFamily: {},
+    });
+  }
+
+  return { prompts, vocab };
 }
 
 const SKIP_SHEETS = new Set(['Template']);
@@ -874,6 +972,7 @@ export function buildLibrary(): ParsedLibrary {
   const idioms: IdiomItem[] = [];
   const collocations: CollocationItem[] = [];
   const ieltsTask1: IeltsTask1Item[] = [];
+  const ieltsTask2: IeltsTask2Prompt[] = [];
 
   const preferredOrder = [
     'Comprehensible Input',
@@ -882,8 +981,9 @@ export function buildLibrary(): ParsedLibrary {
     'IELTS Reading',
     'IELTS Writing Task 2',
     'IELTS Chart',
-    'IELTS Listening',
     'IELTS Map',
+    'IELTS Process',
+    'IELTS Listening',
     'Adjective',
     'Verb',
     'Adjective Practice',
@@ -911,7 +1011,7 @@ export function buildLibrary(): ParsedLibrary {
     const rows = parseCsvRows(csvText);
 
     if (name === 'IELTS Chart') {
-      const parsed = parseIeltsTask1Charts(rows, name, task1Images[name] || {});
+      const parsed = parseIeltsTask1Sheet(rows, name, 'chart', task1Images[name] || {});
       ieltsTask1.push(...parsed);
       decks.push({
         name,
@@ -919,6 +1019,45 @@ export function buildLibrary(): ParsedLibrary {
         count: parsed.length,
         hasImages: parsed.some((t) => Boolean(t.imageUrl)),
         kind: 'special',
+      });
+      continue;
+    }
+    if (name === 'IELTS Process') {
+      const parsed = parseIeltsTask1Sheet(rows, name, 'process', task1Images[name] || {});
+      ieltsTask1.push(...parsed);
+      decks.push({
+        name,
+        fileName,
+        count: parsed.length,
+        hasImages: parsed.some((t) => Boolean(t.imageUrl)),
+        kind: parsed.length ? 'special' : 'empty',
+      });
+      continue;
+    }
+    if (name === 'IELTS Map') {
+      const parsedTasks = parseIeltsTask1Sheet(rows, name, 'map', task1Images[name] || {});
+      ieltsTask1.push(...parsedTasks);
+      const parsedMapVocab = parseGenericVocab(rows, name);
+      vocab.push(...parsedMapVocab);
+      decks.push({
+        name,
+        fileName,
+        count: parsedMapVocab.length,
+        hasImages: parsedTasks.some((t) => Boolean(t.imageUrl)),
+        kind: parsedMapVocab.length > 0 ? 'vocab' : 'empty',
+      });
+      continue;
+    }
+    if (name === 'IELTS Writing Task 2') {
+      const { prompts, vocab: t2Vocab } = parseIeltsWritingTask2(rows, name);
+      ieltsTask2.push(...prompts);
+      vocab.push(...t2Vocab);
+      decks.push({
+        name,
+        fileName,
+        count: t2Vocab.length,
+        hasImages: false,
+        kind: t2Vocab.length > 0 ? 'vocab' : 'empty',
       });
       continue;
     }
@@ -981,27 +1120,6 @@ export function buildLibrary(): ParsedLibrary {
     }
 
     vocab.push(...parsedVocab);
-    if (name === 'IELTS Map' && parsedVocab.length > 0) {
-      const mapImgMap = task1Images['IELTS Map'] || {};
-      const firstMapImg = Object.values(mapImgMap)[0];
-      ieltsTask1.push({
-        id: 'task1::IELTS Map::1',
-        title: 'IELTS Map — Cụm câu mô tả bản đồ & thay đổi quy hoạch',
-        sourceSheet: name,
-        taskType: 'map',
-        chartType: 'Map',
-        imageUrl: firstMapImg,
-        sections: [
-          {
-            part: 'Map Expressions',
-            sentences: parsedVocab.map((v) => ({
-              text: v.word,
-              meaning: v.meaning,
-            })),
-          },
-        ],
-      });
-    }
     decks.push({
       name,
       fileName,
@@ -1019,6 +1137,7 @@ export function buildLibrary(): ParsedLibrary {
     idioms,
     collocations,
     ieltsTask1,
+    ieltsTask2,
     loadedAt,
   };
 }

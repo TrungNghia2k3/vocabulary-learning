@@ -13,7 +13,8 @@ export type AppMode =
   | 'phrasal-verbs'
   | 'idioms'
   | 'collocations'
-  | 'ielts-task1';
+  | 'ielts-task1'
+  | 'ielts-task2';
 
 export interface WordPair {
   word: string;
@@ -142,6 +143,20 @@ export interface IeltsTask1Item {
   sections: IeltsTask1Section[];
 }
 
+export interface IeltsTask2Expression {
+  id: string;
+  phrase: string;
+  meaning: string;
+}
+
+export interface IeltsTask2Prompt {
+  id: string;
+  title: string;
+  prompt: string;
+  questionType: string;
+  expressions: IeltsTask2Expression[];
+}
+
 export interface ParsedLibrary {
   vocab: VocabItem[];
   decks: DeckInfo[];
@@ -150,5 +165,6 @@ export interface ParsedLibrary {
   idioms: IdiomItem[];
   collocations: CollocationItem[];
   ieltsTask1: IeltsTask1Item[];
+  ieltsTask2: IeltsTask2Prompt[];
   loadedAt: string;
 }

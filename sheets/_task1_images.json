@@ -1,7 +1,14 @@
 {
+  "IELTS Process": {
+    "6": "/task1-images/ielts-process-r6.jpg"
+  },
   "IELTS Chart": {
     "6": "/task1-images/ielts-chart-r6.jpg",
     "14": "/task1-images/ielts-chart-r14.jpg",
     "28": "/task1-images/ielts-chart-r28.jpg"
+  },
+  "IELTS Map": {
+    "6": "/task1-images/ielts-map-r6.jpg",
+    "16": "/task1-images/ielts-map-r16.jpg"
   }
 }

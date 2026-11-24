@@ -147,9 +147,10 @@ export function IeltsTask1View({ items, accent }: IeltsTask1ViewProps) {
   const fullEssayWordCount = countWords(fullEssayText);
 
   const practiceParts =
-    activeTask && activeTask.taskType === 'chart'
-      ? ['Introduction', 'Overview', 'Body 1', 'Body 2']
-      : activeTask?.sections.map((s) => s.part) || ['Introduction', 'Overview', 'Body 1', 'Body 2'];
+    activeTask && activeTask.sections.length > 0
+      ? Array.from(new Set(['Introduction', 'Overview', 'Body 1', 'Body 2', ...activeTask.sections.map((s) => s.part)]))
+          .filter((p) => ['Introduction', 'Overview', 'Body 1', 'Body 2'].includes(p) || activeTask.sections.some((s) => s.part === p))
+      : ['Introduction', 'Overview', 'Body 1', 'Body 2'];
   const draftWordCount = practiceParts.reduce((sum, p) => sum + countWords(drafts[p] || ''), 0);
 
   const handleCopyEssay = () => {
@@ -184,6 +185,7 @@ export function IeltsTask1View({ items, accent }: IeltsTask1ViewProps) {
                 { id: 'all', label: `Tất cả (${items.length})` },
                 { id: 'chart', label: `Charts (${items.filter((i) => i.taskType === 'chart').length})` },
                 { id: 'map', label: `Maps (${items.filter((i) => i.taskType === 'map').length})` },
+                { id: 'process', label: `Process (${items.filter((i) => i.taskType === 'process').length})` },
               ] as const
             ).map((f) => (
               <button
