@@ -1173,7 +1173,7 @@ function parseIeltsSpeaking(rows: string[][]): IeltsSpeakingItem[] {
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const r = rows[i];
     const rawQuestion = (r[0] || '').trim();
-    const answer = (answerCol >= 0 ? r[answerCol] : r[1] || '').trim();
+    const answer = ((answerCol >= 0 ? r[answerCol] : r[1]) || '').trim();
     if (!rawQuestion && !answer) continue;
 
     // Separate optional Vietnamese translation appended after " - "
