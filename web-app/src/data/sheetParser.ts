@@ -783,18 +783,21 @@ function parseIeltsTask1Sheet(
   const imgCol = header.findIndex((c) => /image|ảnh/i.test(c));
 
   type RawEntry = { rowNum: number; text: string; meaning?: string; part: string; img?: string };
-  const blocks: RawEntry[][] = [];
+  type RawBlock = { entries: RawEntry[]; continuationOfPrev: boolean };
+  const blocks: RawBlock[] = [];
   const examples: IeltsTask1Example[] = [];
   let current: RawEntry[] = [];
+  let nextContinuation = false;
 
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const r = rows[i];
     const text = (r[0] || '').trim();
     if (!text) {
       if (current.length > 0) {
-        blocks.push(current);
+        blocks.push({ entries: current, continuationOfPrev: nextContinuation });
         current = [];
       }
+      nextContinuation = false;
       continue;
     }
     const rowNum = i + 1; // 1-based Google Sheet row number
@@ -804,9 +807,10 @@ function parseIeltsTask1Sheet(
     // Separate "... Example" rows into the dedicated Example Templates list
     if (/\bexample\b/i.test(part)) {
       if (current.length > 0) {
-        blocks.push(current);
+        blocks.push({ entries: current, continuationOfPrev: nextContinuation });
         current = [];
       }
+      nextContinuation = false;
       const basePart = part.replace(/\s*\bexample\b\s*/gi, '').trim() || 'Example';
       examples.push({
         id: `t1ex::${sheetName}::${rowNum}`,
@@ -824,22 +828,27 @@ function parseIeltsTask1Sheet(
     const img = isUrl(rawImg) ? rawImg : embeddedMap[String(rowNum)];
 
     // If a brand new Introduction starts after Body 1/Body 2 without a blank separator, split cleanly
+    // and mark as continuation of the previous prompt so it shares the same chart/diagram image.
     if (
       /^Introduction$/i.test(part) &&
       current.some((e) => !/^Introduction$/i.test(e.part))
     ) {
-      blocks.push(current);
+      blocks.push({ entries: current, continuationOfPrev: nextContinuation });
       current = [];
+      nextContinuation = true;
     }
     current.push({ rowNum, text, meaning, part, img });
   }
-  if (current.length > 0) blocks.push(current);
+  if (current.length > 0) {
+    blocks.push({ entries: current, continuationOfPrev: nextContinuation });
+  }
 
   const partOrder = ['Introduction', 'Overview', 'Body 1', 'Body 2'];
   const fallbackLabel =
     taskType === 'map' ? 'Map' : taskType === 'process' ? 'Process' : 'Chart';
 
-  const tasks = blocks.map((block, idx) => {
+  let prevImageUrl: string | undefined;
+  const tasks = blocks.map(({ entries: block, continuationOfPrev }, idx) => {
     const sectionsMap = new Map<string, IeltsTask1Section>();
     let imageUrl: string | undefined;
 
@@ -868,6 +877,13 @@ function parseIeltsTask1Sheet(
         }
       }
     }
+
+    // If this essay immediately followed another essay with no blank separator (rewrite/variant of the same chart),
+    // reuse the previous prompt's image when no separate image was pasted.
+    if (!imageUrl && continuationOfPrev && prevImageUrl) {
+      imageUrl = prevImageUrl;
+    }
+    prevImageUrl = imageUrl;
 
     const sections = Array.from(sectionsMap.values()).sort((a, b) => {
       const ia = partOrder.indexOf(a.part);
