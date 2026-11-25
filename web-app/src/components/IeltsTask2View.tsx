@@ -140,6 +140,17 @@ function countWords(text: string): number {
   return text.trim() ? text.trim().split(/\s+/).length : 0;
 }
 
+const TASK2_REQUIRED_PARTS = ['introduction', 'body 1', 'body 2', 'conclusion'] as const;
+
+function hasFullTask2ModelEssay(prompt: IeltsTask2Prompt): boolean {
+  const present = new Set(
+    prompt.sampleSections
+      .filter((s) => s.text.trim().length > 0)
+      .map((s) => s.part.trim().toLowerCase())
+  );
+  return TASK2_REQUIRED_PARTS.every((p) => present.has(p));
+}
+
 /** Highlights [template slots] like [Topic] or [Argument 1] inline while wrapping cleanly. */
 function renderHighlightedTemplate(text: string) {
   const parts = text.split(/(\[[^\]]*\])/g);
@@ -542,7 +553,7 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                             {p.expressions.length} cụm
                           </span>
                         )}
-                        {p.sampleSections.length > 0 && (
+                        {hasFullTask2ModelEssay(p) && (
                           <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                             Bài mẫu
                           </span>
@@ -787,9 +798,9 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                       {activePrompt.expressions.length} cụm từ & ý tưởng
                     </span>
                   )}
-                  {activePrompt.sampleSections.length > 0 && (
+                  {hasFullTask2ModelEssay(activePrompt) && (
                     <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                      Có bài mẫu {activePrompt.sampleSections.length} phần
+                      Bài mẫu (đủ 4 phần)
                     </span>
                   )}
                   {matchingFormats.length > 0 && (

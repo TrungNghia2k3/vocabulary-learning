@@ -11,9 +11,11 @@ import {
   SkipForward,
   Sparkles,
   Volume2,
+  VolumeX,
 } from 'lucide-react';
 import type { Accent } from '../types';
 import { speakText } from '../utils/speech';
+import { playTypingSound } from '../utils/typingSound';
 
 export interface EssayPracticeSentence {
   id: string;
@@ -167,6 +169,27 @@ export function EssayTypingPractice({
   const [peekHidden, setPeekHidden] = useState(false);
   const [ignoreCaseAndPunct, setIgnoreCaseAndPunct] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('vocabStudio:typingSound');
+      return saved === null ? true : saved === 'true';
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleSound = () => {
+    setSoundEnabled((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('vocabStudio:typingSound', String(next));
+      } catch {
+        // ignore storage errors
+      }
+      if (next) playTypingSound('key');
+      return next;
+    });
+  };
 
   // Typing metrics
   const [sessionStartMs, setSessionStartMs] = useState<number | null>(null);
@@ -294,16 +317,20 @@ export function EssayTypingPractice({
       setSessionStartMs(Date.now());
     }
 
-    // Track newly typed character for accuracy metric
+    // Track newly typed character for accuracy metric & mechanical typing sound
+    let lastAddedWasSpace = false;
+    let newMistakes = 0;
     if (val.length > typed.length) {
       const addedLen = val.length - typed.length;
       setTotalKeystrokes((k) => k + addedLen);
-      let newMistakes = 0;
       for (let i = typed.length; i < val.length; i++) {
         const rawCh = val[i]
           .replace(/\u2019|\u2018/g, "'")
           .replace(/\u201C|\u201D/g, '"')
           .replace(/\u2013|\u2014/g, '-');
+        if (i === val.length - 1 && /\s/.test(rawCh)) {
+          lastAddedWasSpace = true;
+        }
         const expected = targetClean[i];
         if (!expected) {
           newMistakes += 1;
@@ -321,6 +348,21 @@ export function EssayTypingPractice({
     const matched =
       normalizeForCompare(val.replace(/\n/g, ' '), ignoreCaseAndPunct) ===
       normalizeForCompare(targetClean, ignoreCaseAndPunct);
+
+    if (soundEnabled) {
+      if (matched) {
+        playTypingSound('complete');
+      } else if (val.length < typed.length) {
+        playTypingSound('space');
+      } else if (newMistakes > 0) {
+        playTypingSound('error');
+      } else if (lastAddedWasSpace) {
+        playTypingSound('space');
+      } else if (val.length > typed.length) {
+        playTypingSound('key');
+      }
+    }
+
     if (matched) {
       completeCurrentSentence(val);
     }
@@ -417,6 +459,26 @@ export function EssayTypingPractice({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={toggleSound}
+              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
+                soundEnabled
+                  ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400'
+              }`}
+              title="Bật hoặc tắt tiếng gõ bàn phím"
+            >
+              {soundEnabled ? (
+                <>
+                  <Volume2 className="h-3.5 w-3.5" /> Tiếng gõ phím: Bật
+                </>
+              ) : (
+                <>
+                  <VolumeX className="h-3.5 w-3.5" /> Tiếng gõ phím: Tắt
+                </>
+              )}
+            </button>
             <label className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
               <input
                 type="checkbox"

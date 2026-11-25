@@ -84,6 +84,17 @@ function countWords(text: string): number {
   return text.trim() ? text.trim().split(/\s+/).length : 0;
 }
 
+const TASK1_REQUIRED_PARTS = ['introduction', 'overview', 'body 1', 'body 2'] as const;
+
+function hasFullTask1ModelEssay(task: IeltsTask1Item): boolean {
+  const present = new Set(
+    task.sections
+      .filter((s) => s.sentences.some((sent) => sent.text.trim().length > 0))
+      .map((s) => s.part.trim().toLowerCase())
+  );
+  return TASK1_REQUIRED_PARTS.every((p) => present.has(p));
+}
+
 /** Highlights [template slots] like [the lake side] or [9] inside Map/Chart Example sentences. */
 function renderHighlightedTemplate(text: string) {
   const parts = text.split(/(\[[^\]]+\])/g);
@@ -371,11 +382,18 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                        {task.chartType}
-                      </span>
-                      <span className="text-[10px] text-slate-400">#{idx + 1}</span>
+                    <div className="flex flex-wrap items-center justify-between gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                          {task.chartType}
+                        </span>
+                        <span className="text-[10px] text-slate-400">#{idx + 1}</span>
+                      </div>
+                      {hasFullTask1ModelEssay(task) && (
+                        <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                          Bài mẫu
+                        </span>
+                      )}
                     </div>
                     <p className="mt-1 line-clamp-2 text-xs font-bold text-slate-800 dark:text-slate-100">
                       {task.title}
@@ -557,10 +575,15 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
           <div className="lg:sticky lg:top-20 lg:col-span-5">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
                     {activeTask.chartType}
                   </span>
+                  {hasFullTask1ModelEssay(activeTask) && (
+                    <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                      Bài mẫu
+                    </span>
+                  )}
                   <span className="text-xs font-medium text-slate-400">
                     {activeTask.sourceSheet}
                   </span>
