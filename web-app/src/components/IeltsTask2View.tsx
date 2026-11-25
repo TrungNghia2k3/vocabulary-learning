@@ -521,14 +521,15 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
   return (
     <div className="space-y-4">
       {/* Compact Top Header + Collapsible Prompt Picker */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-xs sm:p-3.5 dark:border-slate-800 dark:bg-slate-900">
+        {/* Tier 1: Title + 50/50 Mode Switch */}
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-xs">
               <FilePenLine className="h-4.5 w-4.5" />
             </div>
-            <div>
-              <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
+            <div className="min-w-0">
+              <h2 className="truncate text-base font-extrabold text-slate-900 dark:text-white">
                 IELTS Writing Task 2 Studio
               </h2>
               <p className="hidden text-[11px] text-slate-500 sm:block dark:text-slate-400">
@@ -537,46 +538,46 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
-              <button
-                onClick={() => setTopMode('prompts')}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                  topMode === 'prompts'
-                    ? 'bg-white text-indigo-700 shadow-xs dark:bg-slate-900 dark:text-indigo-300'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
-                }`}
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                Đề bài ({prompts.length})
-              </button>
-              <button
-                onClick={() => {
-                  setTopMode('formats');
-                  setPickerOpen(false);
-                }}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                  topMode === 'formats'
-                    ? 'bg-white text-indigo-700 shadow-xs dark:bg-slate-900 dark:text-indigo-300'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
-                }`}
-              >
-                <LayoutTemplate className="h-3.5 w-3.5" />
-                Khung bài mẫu ({formats.length})
-              </button>
-            </div>
+          <div className="grid w-full grid-cols-2 rounded-xl bg-slate-100 p-1 sm:inline-flex sm:w-auto dark:bg-slate-800">
+            <button
+              onClick={() => setTopMode('prompts')}
+              className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold whitespace-nowrap transition ${
+                topMode === 'prompts'
+                  ? 'bg-white text-indigo-700 shadow-xs dark:bg-slate-900 dark:text-indigo-300'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
+              }`}
+            >
+              <BookOpen className="h-3.5 w-3.5 shrink-0" />
+              Đề bài ({prompts.length})
+            </button>
+            <button
+              onClick={() => {
+                setTopMode('formats');
+                setPickerOpen(false);
+              }}
+              className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold whitespace-nowrap transition ${
+                topMode === 'formats'
+                  ? 'bg-white text-indigo-700 shadow-xs dark:bg-slate-900 dark:text-indigo-300'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
+              }`}
+            >
+              <LayoutTemplate className="h-3.5 w-3.5 shrink-0" />
+              Khung bài mẫu ({formats.length})
+            </button>
           </div>
         </div>
 
-        {/* Question Type Filter + Compact 1-Row Prompt Selector Strip */}
+        {/* Tier 2 + Tier 3: Horizontal Swipeable Filter + Active Prompt Card & Balanced Controls */}
         {topMode === 'prompts' && activePrompt && (
           <>
             {promptQuestionTypes.length > 1 && (
-              <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5 dark:border-slate-800">
-                <span className="mr-1 text-[11px] font-bold text-slate-500">Dạng đề:</span>
+              <div className="no-scrollbar mt-2.5 flex items-center gap-1.5 overflow-x-auto border-t border-slate-100 pt-2.5 pb-0.5 sm:flex-wrap dark:border-slate-800">
+                <span className="shrink-0 text-[11px] font-bold whitespace-nowrap text-slate-500">
+                  Dạng đề:
+                </span>
                 <button
                   onClick={() => setPromptTypeFilter('ALL')}
-                  className={`rounded-full px-2.5 py-1 text-xs font-bold transition ${
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold whitespace-nowrap transition ${
                     promptTypeFilter === 'ALL'
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
@@ -588,7 +589,7 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                   <button
                     key={qt}
                     onClick={() => setPromptTypeFilter(qt)}
-                    className={`rounded-full px-2.5 py-1 text-xs font-bold transition ${
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold whitespace-nowrap transition ${
                       promptTypeFilter === qt
                         ? 'bg-indigo-600 text-white shadow-xs'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
@@ -600,32 +601,32 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
               </div>
             )}
 
-            {/* Compact 1-Row Active Prompt Strip */}
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+            {/* Tier 3: Full-Width Active Prompt Card + Balanced Mobile Controls */}
+            <div className="mt-2.5 flex flex-col gap-2 border-t border-slate-100 pt-2.5 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setPickerOpen((o) => !o)}
-                className="group flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-slate-50/70 px-3 py-2 text-left transition hover:border-indigo-400 hover:bg-indigo-50/40 dark:border-slate-700/80 dark:bg-slate-800/50 dark:hover:border-indigo-600"
+                className="group flex w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-slate-50/70 px-3 py-2 text-left transition hover:border-indigo-400 hover:bg-indigo-50/40 sm:flex-1 dark:border-slate-700/80 dark:bg-slate-800/50 dark:hover:border-indigo-600"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] font-extrabold text-slate-500">
+                  <div className="flex items-center gap-1.5 overflow-hidden">
+                    <span className="shrink-0 text-[11px] font-extrabold text-slate-500">
                       Đề {activePromptIdxInVisible + 1}/{visiblePrompts.length}
                     </span>
                     <span
-                      className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${getQuestionTypeBadge(
+                      className={`truncate rounded px-1.5 py-0.5 text-[10px] font-bold ${getQuestionTypeBadge(
                         activePrompt.questionType
                       )}`}
                     >
                       {activePrompt.questionType}
                     </span>
                     {activePromptModelBadge && (
-                      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                      <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                         {activePromptModelBadge}
                       </span>
                     )}
                     {activePrompt.expressions.length > 0 && (
-                      <span className="text-[10px] font-semibold text-slate-400">
+                      <span className="hidden shrink-0 text-[10px] font-semibold text-slate-400 sm:inline">
                         · {activePrompt.expressions.length} cụm từ
                       </span>
                     )}
@@ -644,41 +645,41 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                 </span>
               </button>
 
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className="grid grid-cols-[40px_1fr_40px] items-center gap-1.5 sm:flex sm:shrink-0">
                 <button
                   type="button"
                   onClick={goPrevPrompt}
                   disabled={visiblePrompts.length <= 1}
                   title="Đề trước"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  className="order-1 inline-flex h-9 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 sm:w-9 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                 >
                   <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen((o) => !o)}
+                  className={`order-2 inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold whitespace-nowrap transition sm:order-3 ${
+                    pickerOpen
+                      ? 'bg-indigo-600 text-white shadow-xs hover:bg-indigo-700'
+                      : 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900'
+                  }`}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5 shrink-0" />
+                  <span>Danh sách ({visiblePrompts.length})</span>
+                  {pickerOpen ? (
+                    <ChevronUp className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={goNextPrompt}
                   disabled={visiblePrompts.length <= 1}
                   title="Đề tiếp theo"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  className="order-3 inline-flex h-9 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 sm:order-2 sm:w-9 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                 >
                   <ChevronRight className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPickerOpen((o) => !o)}
-                  className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition ${
-                    pickerOpen
-                      ? 'bg-indigo-600 text-white shadow-xs hover:bg-indigo-700'
-                      : 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900'
-                  }`}
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                  <span>Danh sách ({visiblePrompts.length})</span>
-                  {pickerOpen ? (
-                    <ChevronUp className="h-3.5 w-3.5" />
-                  ) : (
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  )}
                 </button>
               </div>
             </div>

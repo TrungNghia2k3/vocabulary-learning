@@ -357,14 +357,15 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
   return (
     <div className="space-y-4">
       {/* Compact Top Header & Collapsible Task Picker */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-xs sm:p-3.5 dark:border-slate-800 dark:bg-slate-900">
+        {/* Tier 1: Title + Mode Switch (50/50 full width on mobile) */}
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-xs">
               <BarChart3 className="h-4.5 w-4.5" />
             </div>
-            <div>
-              <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
+            <div className="min-w-0">
+              <h2 className="truncate text-base font-extrabold text-slate-900 dark:text-white">
                 IELTS Writing Task 1 Studio
               </h2>
               <p className="hidden text-[11px] text-slate-500 sm:block dark:text-slate-400">
@@ -373,83 +374,80 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Top Mode Switch */}
-            <div className="flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
-              <button
-                onClick={() => setTopSection('tasks')}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                  topSection === 'tasks'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
-                }`}
-              >
-                <ImageIcon className="h-3.5 w-3.5" /> Đề bài ({items.length})
-              </button>
-              <button
-                onClick={() => {
-                  setTopSection('examples');
-                  setPickerOpen(false);
-                }}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                  topSection === 'examples'
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
-                }`}
-              >
-                <ListChecks className="h-3.5 w-3.5" /> Mẫu Example ({examples.length})
-              </button>
-            </div>
-
-            {/* Type Filter Pills */}
-            <div className="flex flex-wrap gap-1">
-              {(
-                [
-                  {
-                    id: 'all',
-                    label: `Tất cả (${topSection === 'tasks' ? items.length : examples.length})`,
-                  },
-                  {
-                    id: 'chart',
-                    label: `Charts (${(topSection === 'tasks' ? items : examples).filter((i) => i.taskType === 'chart').length})`,
-                  },
-                  {
-                    id: 'map',
-                    label: `Maps (${(topSection === 'tasks' ? items : examples).filter((i) => i.taskType === 'map').length})`,
-                  },
-                  {
-                    id: 'process',
-                    label: `Process (${(topSection === 'tasks' ? items : examples).filter((i) => i.taskType === 'process').length})`,
-                  },
-                ] as const
-              ).map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => {
-                    setTypeFilter(f.id);
-                    setExamplePartFilter('ALL');
-                    setOnlyMultiEssay(false);
-                  }}
-                  className={`rounded-xl px-2.5 py-1 text-xs font-bold transition ${
-                    typeFilter === f.id
-                      ? 'bg-slate-900 text-white shadow-xs dark:bg-white dark:text-slate-900'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
+          <div className="grid w-full grid-cols-2 rounded-xl bg-slate-100 p-1 sm:flex sm:w-auto dark:bg-slate-800">
+            <button
+              onClick={() => setTopSection('tasks')}
+              className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold whitespace-nowrap transition ${
+                topSection === 'tasks'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
+              }`}
+            >
+              <ImageIcon className="h-3.5 w-3.5 shrink-0" /> Đề bài ({items.length})
+            </button>
+            <button
+              onClick={() => {
+                setTopSection('examples');
+                setPickerOpen(false);
+              }}
+              className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold whitespace-nowrap transition ${
+                topSection === 'examples'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
+              }`}
+            >
+              <ListChecks className="h-3.5 w-3.5 shrink-0" /> Mẫu Example ({examples.length})
+            </button>
           </div>
         </div>
 
-        {/* Compact 1-Row Active Prompt Selector Strip (Zero Vertical Bloat!) */}
+        {/* Tier 2: Horizontal 1-Row Swipeable Type Filter Chips */}
+        <div className="no-scrollbar mt-2.5 flex items-center gap-1.5 overflow-x-auto border-t border-slate-100 pt-2.5 pb-0.5 sm:flex-wrap dark:border-slate-800">
+          {(
+            [
+              {
+                id: 'all',
+                label: `Tất cả (${topSection === 'tasks' ? items.length : examples.length})`,
+              },
+              {
+                id: 'chart',
+                label: `Charts (${(topSection === 'tasks' ? items : examples).filter((i) => i.taskType === 'chart').length})`,
+              },
+              {
+                id: 'map',
+                label: `Maps (${(topSection === 'tasks' ? items : examples).filter((i) => i.taskType === 'map').length})`,
+              },
+              {
+                id: 'process',
+                label: `Process (${(topSection === 'tasks' ? items : examples).filter((i) => i.taskType === 'process').length})`,
+              },
+            ] as const
+          ).map((f) => (
+            <button
+              key={f.id}
+              onClick={() => {
+                setTypeFilter(f.id);
+                setExamplePartFilter('ALL');
+                setOnlyMultiEssay(false);
+              }}
+              className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap transition ${
+                typeFilter === f.id
+                  ? 'bg-slate-900 text-white shadow-xs dark:bg-white dark:text-slate-900'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tier 3: Active Prompt Card (Full width on mobile) + Balanced Prev / List / Next Bar */}
         {topSection === 'tasks' && activeTask && (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+          <div className="mt-2.5 flex flex-col gap-2 border-t border-slate-100 pt-2.5 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
             <button
               type="button"
               onClick={() => setPickerOpen((o) => !o)}
-              className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-slate-200/80 bg-slate-50/70 px-2.5 py-1.5 text-left transition hover:border-emerald-400 hover:bg-emerald-50/40 dark:border-slate-700/80 dark:bg-slate-800/50 dark:hover:border-emerald-600"
+              className="group flex w-full min-w-0 items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/70 px-2.5 py-1.5 text-left transition hover:border-emerald-400 hover:bg-emerald-50/40 sm:flex-1 dark:border-slate-700/80 dark:bg-slate-800/50 dark:hover:border-emerald-600"
             >
               {activeTask.imageUrl ? (
                 <img
@@ -464,15 +462,15 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
               )}
 
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] font-extrabold text-slate-500">
+                <div className="flex items-center gap-1.5 overflow-hidden">
+                  <span className="shrink-0 text-[11px] font-extrabold text-slate-500">
                     Đề {activeFilteredIdx + 1}/{filtered.length}
                   </span>
-                  <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                  <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
                     {activeTask.chartType}
                   </span>
                   {activeModelBadge && (
-                    <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                    <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                       {activeModelBadge}
                     </span>
                   )}
@@ -492,41 +490,41 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
               </span>
             </button>
 
-            <div className="flex shrink-0 items-center gap-1.5">
+            <div className="grid grid-cols-[40px_1fr_40px] items-center gap-1.5 sm:flex sm:shrink-0">
               <button
                 type="button"
                 onClick={goPrevTask}
                 disabled={filtered.length <= 1}
                 title="Đề trước"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                className="order-1 inline-flex h-9 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 sm:w-9 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               >
                 <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPickerOpen((o) => !o)}
+                className={`order-2 inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold whitespace-nowrap transition sm:order-3 ${
+                  pickerOpen
+                    ? 'bg-emerald-600 text-white shadow-xs hover:bg-emerald-700'
+                    : 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900'
+                }`}
+              >
+                <LayoutGrid className="h-3.5 w-3.5 shrink-0" />
+                <span>Danh sách ({filtered.length})</span>
+                {pickerOpen ? (
+                  <ChevronUp className="h-3.5 w-3.5 shrink-0" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                )}
               </button>
               <button
                 type="button"
                 onClick={goNextTask}
                 disabled={filtered.length <= 1}
                 title="Đề tiếp theo"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                className="order-3 inline-flex h-9 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 sm:order-2 sm:w-9 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               >
                 <ChevronRight className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setPickerOpen((o) => !o)}
-                className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition ${
-                  pickerOpen
-                    ? 'bg-emerald-600 text-white shadow-xs hover:bg-emerald-700'
-                    : 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900'
-                }`}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                <span>Danh sách ({filtered.length})</span>
-                {pickerOpen ? (
-                  <ChevronUp className="h-3.5 w-3.5" />
-                ) : (
-                  <ChevronDown className="h-3.5 w-3.5" />
-                )}
               </button>
             </div>
           </div>

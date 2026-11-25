@@ -226,15 +226,16 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
   return (
     <div className="space-y-4">
       {/* Compact Top Header + Collapsible Song Picker */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-xs sm:p-3.5 dark:border-slate-800 dark:bg-slate-900">
+        {/* Tier 1: Title + Status Pills */}
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-600 to-indigo-600 text-white shadow-xs">
               <Music className="h-4.5 w-4.5" />
             </div>
-            <div>
-              <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
-                Lyrics Studio — Giải mã nhạc nước ngoài
+            <div className="min-w-0">
+              <h2 className="truncate text-base font-extrabold text-slate-900 dark:text-white">
+                Lyrics Studio
               </h2>
               <p className="hidden text-[11px] text-slate-500 sm:block dark:text-slate-400">
                 Dán link YouTube Music vào sheet <code>Lyrics</code> để AI giải mã trọn vẹn slang, ẩn ý & sắc thái gốc.
@@ -242,7 +243,7 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto pb-0.5">
             {(
               [
                 { id: 'ALL', label: `Tất cả (${songs.length})` },
@@ -255,7 +256,7 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
               <button
                 key={f.id}
                 onClick={() => setStatusFilter(f.id)}
-                className={`rounded-xl px-2.5 py-1 text-xs font-bold transition ${
+                className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-bold whitespace-nowrap transition ${
                   statusFilter === f.id
                     ? 'bg-slate-900 text-white shadow-xs dark:bg-white dark:text-slate-900'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
@@ -264,20 +265,33 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
                 {f.label}
               </button>
             ))}
+            {(albumFilter !== 'ALL' || artistFilter !== 'ALL' || statusFilter !== 'ALL') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAlbumFilter('ALL');
+                  setArtistFilter('ALL');
+                  setStatusFilter('ALL');
+                }}
+                className="shrink-0 rounded-xl bg-rose-50 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap text-rose-600 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400"
+              >
+                Xóa lọc
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Album / Playlist & Artist Filter Row */}
+        {/* Tier 2: Horizontal 1-Row Swipeable Album & Artist Chip Rails */}
         {(albums.length > 1 || artists.length > 1) && (
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-2.5 text-xs dark:border-slate-800">
+          <div className="mt-2.5 space-y-2 border-t border-slate-100 pt-2.5 text-xs sm:flex sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2 sm:space-y-0 dark:border-slate-800">
             {albums.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500">
+              <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap">
+                <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-bold whitespace-nowrap text-slate-500">
                   <Disc3 className="h-3.5 w-3.5 text-fuchsia-500" /> Album:
                 </span>
                 <button
                   onClick={() => setAlbumFilter('ALL')}
-                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold transition ${
+                  className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap transition ${
                     albumFilter === 'ALL'
                       ? 'bg-fuchsia-600 text-white shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
@@ -289,7 +303,7 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
                   <button
                     key={alb}
                     onClick={() => setAlbumFilter(alb)}
-                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold transition ${
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap transition ${
                       albumFilter === alb
                         ? 'bg-fuchsia-600 text-white shadow-xs'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
@@ -302,13 +316,13 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
             )}
 
             {artists.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500">
+              <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap">
+                <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-bold whitespace-nowrap text-slate-500">
                   <User className="h-3.5 w-3.5 text-indigo-500" /> Nghệ sĩ:
                 </span>
                 <button
                   onClick={() => setArtistFilter('ALL')}
-                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold transition ${
+                  className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap transition ${
                     artistFilter === 'ALL'
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
@@ -320,7 +334,7 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
                   <button
                     key={art}
                     onClick={() => setArtistFilter(art)}
-                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold transition ${
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap transition ${
                       artistFilter === art
                         ? 'bg-indigo-600 text-white shadow-xs'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
@@ -331,29 +345,15 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
                 ))}
               </div>
             )}
-
-            {(albumFilter !== 'ALL' || artistFilter !== 'ALL' || statusFilter !== 'ALL') && (
-              <button
-                type="button"
-                onClick={() => {
-                  setAlbumFilter('ALL');
-                  setArtistFilter('ALL');
-                  setStatusFilter('ALL');
-                }}
-                className="text-[11px] font-bold text-rose-600 hover:underline dark:text-rose-400"
-              >
-                Xóa bộ lọc
-              </button>
-            )}
           </div>
         )}
 
-        {/* Compact 1-Row Active Song Selector Strip */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+        {/* Tier 3: Active Song Card (Full Width on Mobile) + Balanced Prev / Playlist / Next Bar */}
+        <div className="mt-2.5 flex flex-col gap-2 border-t border-slate-100 pt-2.5 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
           <button
             type="button"
             onClick={() => setPickerOpen((o) => !o)}
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-slate-200/80 bg-slate-50/70 px-2.5 py-1.5 text-left transition hover:border-fuchsia-400 hover:bg-fuchsia-50/30 dark:border-slate-700/80 dark:bg-slate-800/50 dark:hover:border-fuchsia-600"
+            className="flex w-full min-w-0 items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/70 px-2.5 py-1.5 text-left transition hover:border-fuchsia-400 hover:bg-fuchsia-50/30 sm:flex-1 dark:border-slate-700/80 dark:bg-slate-800/50 dark:hover:border-fuchsia-600"
           >
             {activeSong.videoId ? (
               <img
@@ -368,27 +368,18 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
             )}
 
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-extrabold text-slate-500">
+              <div className="flex items-center gap-1.5 overflow-hidden">
+                <span className="shrink-0 text-[11px] font-extrabold text-slate-500">
                   Bài {Math.max(1, activeIdx + 1)}/{Math.max(1, filteredSongs.length)}
                 </span>
                 {activeSong.album && (
-                  <span className="rounded bg-fuchsia-100 px-1.5 py-0.5 text-[10px] font-bold text-fuchsia-700 dark:bg-fuchsia-950 dark:text-fuchsia-300">
+                  <span className="truncate rounded bg-fuchsia-100 px-1.5 py-0.5 text-[10px] font-bold text-fuchsia-700 dark:bg-fuchsia-950 dark:text-fuchsia-300">
                     {activeSong.album}
                   </span>
                 )}
-                <span
-                  className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                    activeSong.status === 'Done'
-                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                  }`}
-                >
-                  {activeSong.status === 'Done' ? 'Đã giải mã' : 'Chờ AI phân tích'}
-                </span>
                 {isExplicit && (
-                  <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-extrabold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                    E · Raw
+                  <span className="shrink-0 rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-extrabold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                    E
                   </span>
                 )}
               </div>
@@ -408,39 +399,41 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
             </span>
           </button>
 
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="grid grid-cols-[40px_1fr_40px] items-center gap-1.5 sm:flex sm:shrink-0">
             <button
               type="button"
               onClick={goPrev}
               disabled={filteredSongs.length <= 1}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              title="Bài trước"
+              className="order-1 inline-flex h-9 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 sm:w-9 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               type="button"
-              onClick={goNext}
-              disabled={filteredSongs.length <= 1}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
               onClick={() => setPickerOpen((o) => !o)}
-              className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition ${
+              className={`order-2 inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold whitespace-nowrap transition sm:order-3 ${
                 pickerOpen
                   ? 'bg-fuchsia-600 text-white shadow-xs hover:bg-fuchsia-700'
                   : 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900'
               }`}
             >
-              <LayoutGrid className="h-3.5 w-3.5" />
+              <LayoutGrid className="h-3.5 w-3.5 shrink-0" />
               <span>Playlist ({filteredSongs.length})</span>
               {pickerOpen ? (
-                <ChevronUp className="h-3.5 w-3.5" />
+                <ChevronUp className="h-3.5 w-3.5 shrink-0" />
               ) : (
-                <ChevronDown className="h-3.5 w-3.5" />
+                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
               )}
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={filteredSongs.length <= 1}
+              title="Bài tiếp theo"
+              className="order-3 inline-flex h-9 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 sm:order-2 sm:w-9 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            >
+              <ChevronRight className="h-4 w-4" />
             </button>
           </div>
         </div>
