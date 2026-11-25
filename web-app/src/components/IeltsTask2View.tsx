@@ -3,8 +3,10 @@ import {
   BookOpen,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Copy,
   Eye,
   EyeOff,
@@ -12,6 +14,7 @@ import {
   FileText,
   Keyboard,
   Layers,
+  LayoutGrid,
   LayoutTemplate,
   PenLine,
   Plus,
@@ -21,8 +24,9 @@ import {
   Sparkles,
   Volume2,
   Wand2,
+  X,
 } from 'lucide-react';
-import type { Accent, IeltsTask2Format, IeltsTask2Prompt } from '../types';
+import type { Accent, IeltsTask2Format, IeltsTask2Prompt, IeltsTask2Section } from '../types';
 import { speakText } from '../utils/speech';
 import {
   EssayTypingPractice,
@@ -142,13 +146,30 @@ function countWords(text: string): number {
 
 const TASK2_REQUIRED_PARTS = ['introduction', 'body 1', 'body 2', 'conclusion'] as const;
 
-function hasFullTask2ModelEssay(prompt: IeltsTask2Prompt): boolean {
+function isFullTask2Sections(sections: IeltsTask2Section[]): boolean {
   const present = new Set(
-    prompt.sampleSections
+    sections
       .filter((s) => s.text.trim().length > 0)
       .map((s) => s.part.trim().toLowerCase())
   );
   return TASK2_REQUIRED_PARTS.every((p) => present.has(p));
+}
+
+function getTask2CompleteEssayCount(prompt: IeltsTask2Prompt): number {
+  const list =
+    prompt.sampleEssays && prompt.sampleEssays.length > 0
+      ? prompt.sampleEssays
+      : prompt.sampleSections.length > 0
+        ? [{ id: 'default', label: 'Bài mẫu 1', sections: prompt.sampleSections }]
+        : [];
+  return list.filter((e) => isFullTask2Sections(e.sections)).length;
+}
+
+function getTask2ModelBadge(prompt: IeltsTask2Prompt): string | null {
+  const count = getTask2CompleteEssayCount(prompt);
+  if (count >= 2) return `${count} bài mẫu`;
+  if (count === 1) return 'Bài mẫu';
+  return null;
 }
 
 /** Highlights [template slots] like [Topic] or [Argument 1] inline while wrapping cleanly. */
@@ -181,12 +202,15 @@ function findSectionTextForPart(format: IeltsTask2Format | null, partKey: string
 export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps) {
   const [topMode, setTopMode] = useState<TopMode>('prompts');
   const [promptTypeFilter, setPromptTypeFilter] = useState<string>('ALL');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
   const [formatTypeFilter, setFormatTypeFilter] = useState<string>('ALL');
   const [formatSearch, setFormatSearch] = useState('');
   const [typingFormatIdInLibrary, setTypingFormatIdInLibrary] = useState<string | null>(null);
   const [promptTypingSource, setPromptTypingSource] = useState<'sample' | 'format'>('sample');
 
   const [selectedId, setSelectedId] = useState<string>(prompts[0]?.id || '');
+  const [sampleEssayIdx, setSampleEssayIdx] = useState<number>(0);
   const [tab, setTab] = useState<Task2Tab>('expressions');
   const [exprPartFilter, setExprPartFilter] = useState<string>('ALL');
   const [search, setSearch] = useState('');
@@ -233,6 +257,17 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
     return prompts.filter((p) => p.questionType === promptTypeFilter);
   }, [prompts, promptTypeFilter]);
 
+  const pickerFilteredPrompts = useMemo(() => {
+    const pq = pickerSearch.trim().toLowerCase();
+    if (!pq) return visiblePrompts;
+    return visiblePrompts.filter(
+      (p) =>
+        p.title.toLowerCase().includes(pq) ||
+        p.prompt.toLowerCase().includes(pq) ||
+        p.questionType.toLowerCase().includes(pq)
+    );
+  }, [visiblePrompts, pickerSearch]);
+
   const activePrompt = useMemo(() => {
     return (
       visiblePrompts.find((p) => p.id === selectedId) ||
@@ -241,6 +276,21 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
       null
     );
   }, [visiblePrompts, prompts, selectedId]);
+
+  const activeSampleEssays = useMemo(() => {
+    if (!activePrompt) return [];
+    if (activePrompt.sampleEssays && activePrompt.sampleEssays.length > 0) {
+      return activePrompt.sampleEssays;
+    }
+    if (activePrompt.sampleSections.length > 0) {
+      return [{ id: `${activePrompt.id}::essay-1`, label: 'Bài mẫu 1', sections: activePrompt.sampleSections }];
+    }
+    return [];
+  }, [activePrompt]);
+
+  const safeSampleEssayIdx = Math.min(sampleEssayIdx, Math.max(0, activeSampleEssays.length - 1));
+  const activeSampleEssay = activeSampleEssays[safeSampleEssayIdx] || null;
+  const activeSampleSections = activeSampleEssay ? activeSampleEssay.sections : [];
 
   // Formats matching the active prompt's Question Type
   const matchingFormats = useMemo(() => {
@@ -262,6 +312,7 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
     if (!activePrompt) return;
     setSearch('');
     setExprPartFilter('ALL');
+    setSampleEssayIdx(0);
     setDrillIdx(0);
     setDrillFlipped(false);
 
@@ -410,8 +461,11 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
 
   const promptTypingSentences = useMemo(() => {
     if (!activePrompt) return [];
-    if (promptTypingSource === 'sample' && activePrompt.sampleSections.length > 0) {
-      return buildSentencesFromSections(`${activePrompt.id}::sample`, activePrompt.sampleSections);
+    if (promptTypingSource === 'sample' && activeSampleSections.length > 0) {
+      return buildSentencesFromSections(
+        `${activePrompt.id}::sample-e${safeSampleEssayIdx}`,
+        activeSampleSections
+      );
     }
     if (activeWriterFormat) {
       return buildSentencesFromSections(
@@ -420,7 +474,7 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
       );
     }
     return [];
-  }, [activePrompt, promptTypingSource, activeWriterFormat]);
+  }, [activePrompt, promptTypingSource, activeSampleSections, safeSampleEssayIdx, activeWriterFormat]);
 
   if (prompts.length === 0 && formats.length === 0) {
     return (
@@ -446,25 +500,39 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
       ? activePrompt.expressions[drillIdx % activePrompt.expressions.length]
       : null;
 
-  const fullSampleText = activePrompt
-    ? activePrompt.sampleSections.map((s) => s.text).join('\n\n')
-    : '';
+  const fullSampleText = activeSampleSections.map((s) => s.text).join('\n\n');
+  const activePromptIdxInVisible = activePrompt
+    ? visiblePrompts.findIndex((p) => p.id === activePrompt.id)
+    : 0;
+  const activePromptModelBadge = activePrompt ? getTask2ModelBadge(activePrompt) : null;
+
+  const goPrevPrompt = () => {
+    if (visiblePrompts.length <= 1) return;
+    const prev = activePromptIdxInVisible > 0 ? activePromptIdxInVisible - 1 : visiblePrompts.length - 1;
+    setSelectedId(visiblePrompts[prev].id);
+  };
+
+  const goNextPrompt = () => {
+    if (visiblePrompts.length <= 1) return;
+    const next = (activePromptIdxInVisible + 1) % visiblePrompts.length;
+    setSelectedId(visiblePrompts[next].id);
+  };
 
   return (
-    <div className="space-y-5">
-      {/* Top Header + Mode Switch */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-xs">
-              <FilePenLine className="h-5 w-5" />
+    <div className="space-y-4">
+      {/* Compact Top Header + Collapsible Prompt Picker */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-xs">
+              <FilePenLine className="h-4.5 w-4.5" />
             </div>
             <div>
-              <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
+              <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
                 IELTS Writing Task 2 Studio
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Đề bài phân theo dạng đề (Question Type), khung bài mẫu chuẩn 4 đoạn & luyện viết tích xanh tự động.
+              <p className="hidden text-[11px] text-slate-500 sm:block dark:text-slate-400">
+                Đề bài phân theo dạng đề, khung bài mẫu chuẩn 4 đoạn & luyện gõ thuộc format.
               </p>
             </div>
           </div>
@@ -473,18 +541,21 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
             <div className="inline-flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
               <button
                 onClick={() => setTopMode('prompts')}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
                   topMode === 'prompts'
                     ? 'bg-white text-indigo-700 shadow-xs dark:bg-slate-900 dark:text-indigo-300'
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
                 }`}
               >
                 <BookOpen className="h-3.5 w-3.5" />
-                Đề bài & Luyện viết ({prompts.length})
+                Đề bài ({prompts.length})
               </button>
               <button
-                onClick={() => setTopMode('formats')}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                onClick={() => {
+                  setTopMode('formats');
+                  setPickerOpen(false);
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
                   topMode === 'formats'
                     ? 'bg-white text-indigo-700 shadow-xs dark:bg-slate-900 dark:text-indigo-300'
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
@@ -497,15 +568,15 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
           </div>
         </div>
 
-        {/* Question Type Filter + Prompt Cards (when in 'prompts' mode) */}
-        {topMode === 'prompts' && (
+        {/* Question Type Filter + Compact 1-Row Prompt Selector Strip */}
+        {topMode === 'prompts' && activePrompt && (
           <>
             {promptQuestionTypes.length > 1 && (
-              <div className="mt-3.5 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+              <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5 dark:border-slate-800">
                 <span className="mr-1 text-[11px] font-bold text-slate-500">Dạng đề:</span>
                 <button
                   onClick={() => setPromptTypeFilter('ALL')}
-                  className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                  className={`rounded-full px-2.5 py-1 text-xs font-bold transition ${
                     promptTypeFilter === 'ALL'
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
@@ -517,7 +588,7 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                   <button
                     key={qt}
                     onClick={() => setPromptTypeFilter(qt)}
-                    className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                    className={`rounded-full px-2.5 py-1 text-xs font-bold transition ${
                       promptTypeFilter === qt
                         ? 'bg-indigo-600 text-white shadow-xs'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
@@ -529,53 +600,177 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
               </div>
             )}
 
-            <div className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-              {visiblePrompts.map((p) => {
-                const active = activePrompt && p.id === activePrompt.id;
-                const origIdx = prompts.findIndex((x) => x.id === p.id);
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => setSelectedId(p.id)}
-                    className={`flex flex-col rounded-xl border p-3 text-left transition ${
-                      active
-                        ? 'border-indigo-500 bg-indigo-50/70 ring-2 ring-indigo-500/20 dark:border-indigo-400 dark:bg-indigo-950/40'
-                        : 'border-slate-200 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-100/70 dark:border-slate-800 dark:bg-slate-800/40'
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-1.5">
-                      <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                        Đề #{origIdx + 1}
+            {/* Compact 1-Row Active Prompt Strip */}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setPickerOpen((o) => !o)}
+                className="group flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-slate-50/70 px-3 py-2 text-left transition hover:border-indigo-400 hover:bg-indigo-50/40 dark:border-slate-700/80 dark:bg-slate-800/50 dark:hover:border-indigo-600"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-extrabold text-slate-500">
+                      Đề {activePromptIdxInVisible + 1}/{visiblePrompts.length}
+                    </span>
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${getQuestionTypeBadge(
+                        activePrompt.questionType
+                      )}`}
+                    >
+                      {activePrompt.questionType}
+                    </span>
+                    {activePromptModelBadge && (
+                      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                        {activePromptModelBadge}
                       </span>
-                      <div className="flex items-center gap-1">
-                        {p.expressions.length > 0 && (
-                          <span className="text-[10px] font-semibold text-slate-500">
-                            {p.expressions.length} cụm
-                          </span>
-                        )}
-                        {hasFullTask2ModelEssay(p) && (
-                          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                            Bài mẫu
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <p className="mt-1.5 line-clamp-2 text-xs font-bold text-slate-900 dark:text-white">
-                      {p.title}
-                    </p>
-                    <div className="mt-auto pt-2">
-                      <span
-                        className={`inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold ${getQuestionTypeBadge(
-                          p.questionType
-                        )}`}
-                      >
-                        {p.questionType}
+                    )}
+                    {activePrompt.expressions.length > 0 && (
+                      <span className="text-[10px] font-semibold text-slate-400">
+                        · {activePrompt.expressions.length} cụm từ
                       </span>
-                    </div>
-                  </button>
-                );
-              })}
+                    )}
+                  </div>
+                  <p className="mt-0.5 truncate text-xs font-bold text-slate-900 dark:text-white">
+                    {activePrompt.title}
+                  </p>
+                </div>
+                <span className="hidden shrink-0 items-center gap-1 text-[11px] font-bold text-indigo-600 sm:inline-flex dark:text-indigo-400">
+                  {pickerOpen ? 'Thu gọn' : 'Đổi đề'}
+                  {pickerOpen ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
+                </span>
+              </button>
+
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={goPrevPrompt}
+                  disabled={visiblePrompts.length <= 1}
+                  title="Đề trước"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={goNextPrompt}
+                  disabled={visiblePrompts.length <= 1}
+                  title="Đề tiếp theo"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen((o) => !o)}
+                  className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition ${
+                    pickerOpen
+                      ? 'bg-indigo-600 text-white shadow-xs hover:bg-indigo-700'
+                      : 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900'
+                  }`}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  <span>Danh sách ({visiblePrompts.length})</span>
+                  {pickerOpen ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </div>
             </div>
+
+            {/* Collapsible Searchable Prompt Picker Panel (Bounded height, auto-closes on select) */}
+            {pickerOpen && (
+              <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={pickerSearch}
+                      onChange={(e) => setPickerSearch(e.target.value)}
+                      placeholder="Tìm đề Task 2 theo chủ đề hoặc dạng đề..."
+                      className="w-full rounded-xl border border-slate-200 bg-white py-1.5 pr-8 pl-8 text-xs outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900"
+                    />
+                    {pickerSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setPickerSearch('')}
+                        className="absolute top-1/2 right-2.5 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-500">
+                    Hiện {pickerFilteredPrompts.length}/{visiblePrompts.length} đề
+                  </span>
+                </div>
+
+                {pickerFilteredPrompts.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-slate-500">
+                    Không tìm thấy đề bài phù hợp với từ khóa “{pickerSearch}”.
+                  </div>
+                ) : (
+                  <div className="grid max-h-[360px] grid-cols-1 gap-2.5 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {pickerFilteredPrompts.map((p) => {
+                      const active = p.id === activePrompt.id;
+                      const origIdx = prompts.findIndex((x) => x.id === p.id);
+                      const badge = getTask2ModelBadge(p);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedId(p.id);
+                            setPickerOpen(false);
+                          }}
+                          className={`flex flex-col rounded-xl border p-2.5 text-left transition ${
+                            active
+                              ? 'border-indigo-500 bg-indigo-50/80 ring-2 ring-indigo-500/20 dark:border-indigo-400 dark:bg-indigo-950/50'
+                              : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/30 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-indigo-700'
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-1.5">
+                            <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                              Đề #{origIdx + 1}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {p.expressions.length > 0 && (
+                                <span className="text-[10px] font-semibold text-slate-500">
+                                  {p.expressions.length} cụm
+                                </span>
+                              )}
+                              {badge && (
+                                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                                  {badge}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="mt-1.5 line-clamp-2 text-xs font-bold text-slate-900 dark:text-white">
+                            {p.title}
+                          </p>
+                          <div className="mt-auto pt-2">
+                            <span
+                              className={`inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold ${getQuestionTypeBadge(
+                                p.questionType
+                              )}`}
+                            >
+                              {p.questionType}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -798,9 +993,9 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                       {activePrompt.expressions.length} cụm từ & ý tưởng
                     </span>
                   )}
-                  {hasFullTask2ModelEssay(activePrompt) && (
+                  {activePromptModelBadge && (
                     <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                      Bài mẫu (đủ 4 phần)
+                      {activePromptModelBadge} (đủ 4 phần)
                     </span>
                   )}
                   {matchingFormats.length > 0 && (
@@ -996,13 +1191,41 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
             </div>
           )}
 
-          {/* TAB 2: Structured 4-Part Model Essay (e.g. Prompt #5) */}
-          {tab === 'sample' && activePrompt.sampleSections.length > 0 && (
+          {/* TAB 2: Structured 4-Part Model Essay (supports 1 or multiple sample essays) */}
+          {tab === 'sample' && activeSampleSections.length > 0 && (
             <div className="space-y-4">
+              {activeSampleEssays.length > 1 && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-2.5 dark:border-emerald-900/70 dark:bg-emerald-950/30">
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-emerald-800 dark:text-emerald-300">
+                    <Layers className="h-4 w-4" />
+                    <span>Đề này có {activeSampleEssays.length} bài mẫu:</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {activeSampleEssays.map((ev, idx) => (
+                      <button
+                        key={ev.id}
+                        type="button"
+                        onClick={() => setSampleEssayIdx(idx)}
+                        className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                          idx === safeSampleEssayIdx
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-white text-slate-700 hover:bg-emerald-100/70 dark:bg-slate-900 dark:text-slate-200'
+                        }`}
+                      >
+                        {ev.label} ({countWords(ev.sections.map((s) => s.text).join(' '))} từ)
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                    Bài luận mẫu theo bố cục 4 phần ({countWords(fullSampleText)} từ)
+                    {activeSampleEssays.length > 1
+                      ? `${activeSampleEssay?.label || 'Bài mẫu'} — bố cục 4 phần`
+                      : 'Bài luận mẫu theo bố cục 4 phần'}{' '}
+                    ({countWords(fullSampleText)} từ)
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Phần tô vàng là nội dung triển khai theo đề; phần chữ thường là khung cố định từ bảng Format.
@@ -1043,7 +1266,7 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
               </div>
 
               <div className="space-y-3">
-                {activePrompt.sampleSections.map((sec, idx) => {
+                {activeSampleSections.map((sec, idx) => {
                   const style = getPartStyle(sec.part);
                   const copyId = `sample-sec-${idx}`;
                   return (
@@ -1110,6 +1333,23 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                     >
                       Bài mẫu 4 phần của đề này
                     </button>
+                  )}
+                  {promptTypingSource === 'sample' && activeSampleEssays.length > 1 && (
+                    <div className="flex gap-1">
+                      {activeSampleEssays.map((ev, idx) => (
+                        <button
+                          key={ev.id}
+                          onClick={() => setSampleEssayIdx(idx)}
+                          className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                            idx === safeSampleEssayIdx
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+                              : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                          }`}
+                        >
+                          {ev.label}
+                        </button>
+                      ))}
+                    </div>
                   )}
                   {formats.length > 0 && (
                     <button
@@ -1222,7 +1462,7 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                         hideSampleInWriter ? 'select-none blur-sm opacity-60' : ''
                       }`}
                     >
-                      {activePrompt.sampleSections.map((sec, i) => {
+                      {activeSampleSections.map((sec, i) => {
                         const style = getPartStyle(sec.part);
                         return (
                           <div

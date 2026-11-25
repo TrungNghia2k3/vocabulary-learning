@@ -848,7 +848,9 @@ function parseIeltsTask1Sheet(
     taskType === 'map' ? 'Map' : taskType === 'process' ? 'Process' : 'Chart';
 
   let prevImageUrl: string | undefined;
-  const tasks = blocks.map(({ entries: block, continuationOfPrev }, idx) => {
+  const tasks: IeltsTask1Item[] = [];
+
+  for (const { entries: block, continuationOfPrev } of blocks) {
     const sectionsMap = new Map<string, IeltsTask1Section>();
     let imageUrl: string | undefined;
 
@@ -878,13 +880,6 @@ function parseIeltsTask1Sheet(
       }
     }
 
-    // If this essay immediately followed another essay with no blank separator (rewrite/variant of the same chart),
-    // reuse the previous prompt's image when no separate image was pasted.
-    if (!imageUrl && continuationOfPrev && prevImageUrl) {
-      imageUrl = prevImageUrl;
-    }
-    prevImageUrl = imageUrl;
-
     const sections = Array.from(sectionsMap.values()).sort((a, b) => {
       const ia = partOrder.indexOf(a.part);
       const ib = partOrder.indexOf(b.part);
@@ -899,10 +894,37 @@ function parseIeltsTask1Sheet(
       sections.find((s) => s.part === 'Overview')?.sentences[0]?.text ||
       block[0]?.text ||
       '';
+    const title = makeTask1Title(firstIntro, tasks.length + 1);
 
-    return {
-      id: `task1::${sheetName}::${idx + 1}`,
-      title: makeTask1Title(firstIntro, idx + 1),
+    // Merge into the previous prompt when:
+    // 1. This essay immediately followed the previous essay without a blank row (continuationOfPrev)
+    //    and does NOT carry a brand-new distinct image of its own, OR
+    // 2. It explicitly points to the exact same prompt image as the previous prompt.
+    const prevTask = tasks[tasks.length - 1];
+    const shouldMergeIntoPrev =
+      Boolean(prevTask) &&
+      ((continuationOfPrev && (!imageUrl || imageUrl === prevTask.imageUrl)) ||
+        (Boolean(imageUrl) && imageUrl === prevTask.imageUrl));
+
+    if (shouldMergeIntoPrev && prevTask) {
+      const nextNum = prevTask.essays.length + 1;
+      prevTask.essays.push({
+        id: `${prevTask.id}::essay-${nextNum}`,
+        label: `Bài mẫu ${nextNum}`,
+        sections,
+      });
+      continue;
+    }
+
+    if (!imageUrl && continuationOfPrev && prevImageUrl) {
+      imageUrl = prevImageUrl;
+    }
+    prevImageUrl = imageUrl;
+
+    const taskId = `task1::${sheetName}::${tasks.length + 1}`;
+    tasks.push({
+      id: taskId,
+      title,
       sourceSheet: sheetName,
       taskType,
       chartType:
@@ -913,11 +935,17 @@ function parseIeltsTask1Sheet(
             : detectChartType(firstIntro, fallbackLabel),
       imageUrl,
       sections,
-    };
-  });
+      essays: [
+        {
+          id: `${taskId}::essay-1`,
+          label: 'Bài mẫu 1',
+          sections,
+        },
+      ],
+    });
+  }
 
-  // If a rewrite/variant essay for the exact same prompt immediately follows without a duplicate pasted image,
-  // reuse the matching prompt's image cleanly.
+  // Fallback: if any remaining prompt has no image but matches an earlier title, share its image
   const imageByTitle = new Map<string, string>();
   for (const t of tasks) {
     const key = t.title.toLowerCase().trim();
@@ -1046,6 +1074,7 @@ function parseIeltsWritingTask2(
         questionType: qTypeText || detectTask2Type(topicText),
         expressions: [],
         sampleSections: [],
+        sampleEssays: [],
       };
       prompts.push(currentPrompt);
     } else if (qTypeText && currentPrompt && !currentPrompt.questionType) {
@@ -1061,6 +1090,7 @@ function parseIeltsWritingTask2(
         questionType: qTypeText || 'General',
         expressions: [],
         sampleSections: [],
+        sampleEssays: [],
       };
       prompts.push(currentPrompt);
     }
@@ -1071,10 +1101,26 @@ function parseIeltsWritingTask2(
     const isSampleParagraph = Boolean(partText) && (!meaning || wordCount >= 18);
 
     if (isSampleParagraph) {
-      currentPrompt.sampleSections.push({
-        part: partText,
-        text: phrase,
-      });
+      // Split into separate model essay variants if a new Introduction appears after other parts
+      const activeEssay = currentPrompt.sampleEssays[currentPrompt.sampleEssays.length - 1];
+      const startsNewEssay =
+        !activeEssay ||
+        (/^introduction$/i.test(partText) &&
+          activeEssay.sections.some((s) => !/^introduction$/i.test(s.part)));
+
+      if (startsNewEssay) {
+        const nextNum = currentPrompt.sampleEssays.length + 1;
+        currentPrompt.sampleEssays.push({
+          id: `${currentPrompt.id}::essay-${nextNum}`,
+          label: `Bài mẫu ${nextNum}`,
+          sections: [{ part: partText, text: phrase }],
+        });
+      } else {
+        activeEssay.sections.push({ part: partText, text: phrase });
+      }
+      if (currentPrompt.sampleEssays.length === 1) {
+        currentPrompt.sampleSections.push({ part: partText, text: phrase });
+      }
       continue;
     }
 

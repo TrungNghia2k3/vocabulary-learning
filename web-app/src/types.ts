@@ -134,6 +134,12 @@ export interface IeltsTask1Section {
   sentences: IeltsTask1Sentence[];
 }
 
+export interface IeltsTask1EssayVariant {
+  id: string;
+  label: string;
+  sections: IeltsTask1Section[];
+}
+
 export interface IeltsTask1Item {
   id: string;
   title: string;
@@ -142,6 +148,7 @@ export interface IeltsTask1Item {
   chartType: string;
   imageUrl?: string;
   sections: IeltsTask1Section[];
+  essays: IeltsTask1EssayVariant[];
 }
 
 export interface IeltsTask1Example {
@@ -166,6 +173,12 @@ export interface IeltsTask2Section {
   text: string;
 }
 
+export interface IeltsTask2EssayVariant {
+  id: string;
+  label: string;
+  sections: IeltsTask2Section[];
+}
+
 export interface IeltsTask2Format {
   id: string;
   questionType: string;
@@ -180,6 +193,7 @@ export interface IeltsTask2Prompt {
   questionType: string;
   expressions: IeltsTask2Expression[];
   sampleSections: IeltsTask2Section[];
+  sampleEssays: IeltsTask2EssayVariant[];
 }
 
 export type SpeakingPart = 'Part 1' | 'Part 2' | 'Part 3' | 'Chưa gắn Part';
