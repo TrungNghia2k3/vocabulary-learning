@@ -40,75 +40,179 @@ TASK1_PUBLIC_DIR = BASE_DIR / "web-app" / "public" / "task1-images"
 TASK1_MANIFEST_PATH = BASE_DIR / "sheets" / "_task1_images.json"
 
 
-def extract_task1_images(spreadsheet_id: str) -> dict[str, dict[str, str]]:
-    """Export spreadsheet as .xlsx temporarily to extract embedded/pasted images on IELTS Task 1 sheets."""
+def _extract_images_from_xlsx(
+    xlsx_path: Path,
+    manifest: dict[str, dict[str, str]],
+    target_names: set[str] | None = None,
+) -> int:
+    """Parse an .xlsx archive and extract floating/embedded images on IELTS Task 1 tabs."""
+    extracted = 0
+    TASK1_PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(xlsx_path) as z:
+        names = set(z.namelist())
+        wb = ET.fromstring(z.read("xl/workbook.xml"))
+        wb_rels = {
+            r.attrib["Id"]: r.attrib["Target"]
+            for r in ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
+        }
+        ns = {"main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+        for sh in wb.findall(".//main:sheet", ns):
+            raw_name = sh.attrib["name"]
+            # Handle "Copy of IELTS Process" created by copy-sheet per-tab export
+            clean_name = re.sub(r"^Copy of\s+", "", raw_name, flags=re.IGNORECASE).strip()
+            if raw_name not in TASK1_IMAGE_SHEETS and clean_name not in TASK1_IMAGE_SHEETS:
+                continue
+            if target_names is not None and clean_name not in target_names:
+                continue
+            rid = sh.attrib["{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"]
+            target = wb_rels.get(rid, "")
+            rel_path = "xl/" + target.replace("worksheets/", "worksheets/_rels/") + ".rels"
+            if rel_path not in names:
+                continue
+            s_rels = ET.fromstring(z.read(rel_path))
+            tab_manifest: dict[str, str] = {}
+            for rel in s_rels:
+                if "drawing" not in rel.attrib.get("Target", ""):
+                    continue
+                d_path = "xl/" + rel.attrib["Target"].replace("../", "")
+                d_rel_path = d_path.replace("drawings/", "drawings/_rels/") + ".rels"
+                if d_rel_path not in names:
+                    continue
+                d_rels = {
+                    x.attrib["Id"]: x.attrib["Target"].replace("../", "xl/")
+                    for x in ET.fromstring(z.read(d_rel_path))
+                }
+                d_xml = ET.fromstring(z.read(d_path))
+                for anc in list(d_xml):
+                    fr = anc.find(
+                        ".//{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}from"
+                    )
+                    row_el = (
+                        fr.find(
+                            "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}row"
+                        )
+                        if fr is not None
+                        else None
+                    )
+                    row_num = int(row_el.text) + 1 if row_el is not None and row_el.text else -1
+                    blip = anc.find(".//{http://schemas.openxmlformats.org/drawingml/2006/main}blip")
+                    embed_id = (
+                        blip.attrib.get(
+                            "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed",
+                            "",
+                        )
+                        if blip is not None
+                        else ""
+                    )
+                    img_path = d_rels.get(embed_id, "")
+                    if row_num > 0 and img_path and img_path in names:
+                        ext = Path(img_path).suffix.lower() or ".jpg"
+                        slug = re.sub(r"[^a-z0-9]+", "-", clean_name.lower()).strip("-")
+                        fname = f"{slug}-r{row_num}{ext}"
+                        (TASK1_PUBLIC_DIR / fname).write_bytes(z.read(img_path))
+                        tab_manifest[str(row_num)] = f"/task1-images/{fname}"
+                        extracted += 1
+            if tab_manifest:
+                manifest[clean_name] = tab_manifest
+    return extracted
+
+
+def _trash_temp_spreadsheet(tmp_id: str) -> None:
+    gdrive_exe = shutil.which("gdrive")
+    if not gdrive_exe or not tmp_id:
+        return
+    subprocess.run(
+        [gdrive_exe, "mutate", "trash", tmp_id],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+
+def extract_task1_images(
+    spreadsheet_id: str, target_sheets: list[str] | None = None
+) -> dict[str, dict[str, str]]:
+    """Export spreadsheet as .xlsx (with automatic per-tab fallback if >10MB) to extract Task 1 images."""
     tmp_xlsx = SYNC_DIR / "_media_tmp.xlsx"
-    manifest: dict[str, dict[str, str]] = {}
+    manifest: dict[str, dict[str, str]] = load_json(TASK1_MANIFEST_PATH, {}) or {}
+    clean_targets = (
+        {t.strip() for t in target_sheets if t.strip() in TASK1_IMAGE_SHEETS}
+        if target_sheets
+        else None
+    )
     try:
-        run_gsheets(["readonly", "export", spreadsheet_id, str(tmp_xlsx), "--format", "xlsx"])
-        TASK1_PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(tmp_xlsx) as z:
-            names = set(z.namelist())
-            wb = ET.fromstring(z.read("xl/workbook.xml"))
-            wb_rels = {
-                r.attrib["Id"]: r.attrib["Target"]
-                for r in ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
-            }
-            ns = {"main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
-            for sh in wb.findall(".//main:sheet", ns):
-                raw_name = sh.attrib["name"]
-                clean_name = raw_name.strip()
-                if raw_name not in TASK1_IMAGE_SHEETS and clean_name not in TASK1_IMAGE_SHEETS:
+        try:
+            run_gsheets(["readonly", "export", spreadsheet_id, str(tmp_xlsx), "--format", "xlsx"])
+            _extract_images_from_xlsx(tmp_xlsx, manifest, clean_targets)
+        except RuntimeError as exc:
+            if "exportSizeLimitExceeded" not in str(exc):
+                raise
+            print(
+                "Spreadsheet vượt giới hạn export 10MB của Google Drive — tự động tách trích xuất ảnh từng tab..."
+            )
+            meta = json.loads(
+                run_gsheets(["readonly", "list-sheets", spreadsheet_id, "--json"])
+            )
+            sheets_list = meta if isinstance(meta, list) else meta.get("sheets", [])
+            for sh in sheets_list:
+                raw_title = sh.get("title") or sh.get("properties", {}).get("title", "")
+                clean_title = raw_title.strip()
+                if clean_title not in TASK1_IMAGE_SHEETS:
                     continue
-                rid = sh.attrib["{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"]
-                target = wb_rels.get(rid, "")
-                rel_path = "xl/" + target.replace("worksheets/", "worksheets/_rels/") + ".rels"
-                if rel_path not in names:
+                if clean_targets is not None and clean_title not in clean_targets:
                     continue
-                s_rels = ET.fromstring(z.read(rel_path))
-                for rel in s_rels:
-                    if "drawing" not in rel.attrib.get("Target", ""):
-                        continue
-                    d_path = "xl/" + rel.attrib["Target"].replace("../", "")
-                    d_rel_path = d_path.replace("drawings/", "drawings/_rels/") + ".rels"
-                    if d_rel_path not in names:
-                        continue
-                    d_rels = {
-                        x.attrib["Id"]: x.attrib["Target"].replace("../", "xl/")
-                        for x in ET.fromstring(z.read(d_rel_path))
-                    }
-                    d_xml = ET.fromstring(z.read(d_path))
-                    for anc in list(d_xml):
-                        fr = anc.find(
-                            ".//{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}from"
-                        )
-                        row_el = (
-                            fr.find(
-                                "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}row"
+                sh_id = sh.get("sheetId", sh.get("id", sh.get("properties", {}).get("sheetId")))
+                if sh_id is None:
+                    continue
+                tmp_id = ""
+                try:
+                    tmp_title = f"_tmp_export_{clean_title}"
+                    raw_created = run_gsheets(
+                        ["mutate", "create", "--title", tmp_title, "--json"]
+                    ).strip()
+                    try:
+                        created = json.loads(raw_created)
+                        tmp_id = created.get("spreadsheetId") or created.get("id") or ""
+                    except json.JSONDecodeError:
+                        m = re.search(r"\b([a-zA-Z0-9_-]{30,60})\b", raw_created)
+                        tmp_id = m.group(1) if m else ""
+                    if not tmp_id:
+                        gdrive_exe = shutil.which("gdrive")
+                        if gdrive_exe:
+                            s_out = subprocess.check_output(
+                                [gdrive_exe, "readonly", "search", "--name-contains", tmp_title, "--json"],
+                                text=True,
+                                encoding="utf-8",
+                                errors="replace",
                             )
-                            if fr is not None
-                            else None
-                        )
-                        row_num = int(row_el.text) + 1 if row_el is not None and row_el.text else -1
-                        blip = anc.find(".//{http://schemas.openxmlformats.org/drawingml/2006/main}blip")
-                        embed_id = (
-                            blip.attrib.get(
-                                "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed",
-                                "",
-                            )
-                            if blip is not None
-                            else ""
-                        )
-                        img_path = d_rels.get(embed_id, "")
-                        if row_num > 0 and img_path and img_path in names:
-                            ext = Path(img_path).suffix.lower() or ".jpg"
-                            slug = re.sub(r"[^a-z0-9]+", "-", clean_name.lower()).strip("-")
-                            fname = f"{slug}-r{row_num}{ext}"
-                            (TASK1_PUBLIC_DIR / fname).write_bytes(z.read(img_path))
-                            manifest.setdefault(clean_name, {})[str(row_num)] = f"/task1-images/{fname}"
+                            hits = json.loads(s_out)
+                            if isinstance(hits, list) and hits:
+                                tmp_id = hits[0].get("id", "")
+                    if not tmp_id:
+                        raise RuntimeError(f"Không lấy được spreadsheetId tạm cho tab {clean_title}")
+                    run_gsheets(
+                        [
+                            "mutate",
+                            "copy-sheet",
+                            spreadsheet_id,
+                            "--sheet-id",
+                            str(sh_id),
+                            "--dest",
+                            tmp_id,
+                        ]
+                    )
+                    if tmp_xlsx.exists():
+                        tmp_xlsx.unlink()
+                    run_gsheets(["readonly", "export", tmp_id, str(tmp_xlsx), "--format", "xlsx"])
+                    count = _extract_images_from_xlsx(tmp_xlsx, manifest, {clean_title})
+                    print(f"  ✓ Tab '{clean_title}': đã trích xuất {count} ảnh đề bài")
+                finally:
+                    if tmp_id:
+                        _trash_temp_spreadsheet(tmp_id)
         save_json(TASK1_MANIFEST_PATH, manifest)
         total = sum(len(v) for v in manifest.values())
-        print(f"Đã trích xuất {total} ảnh đề bài IELTS Task 1 vào web-app/public/task1-images/")
+        print(f"Đã trích xuất tổng cộng {total} ảnh đề bài IELTS Task 1 vào web-app/public/task1-images/")
     finally:
         if tmp_xlsx.exists():
             tmp_xlsx.unlink()
@@ -632,8 +736,12 @@ def cmd_sync(
         for title in pulled_titles:
             fpath = sheets_dir / sheet_map[title]
             write_local_csv(fpath, plan["merged_grids"][title])
-        if any(t.strip() in TASK1_IMAGE_SHEETS for t in pulled_titles):
-            extract_task1_images(spreadsheet_id)
+        changed_img_tabs = [t for t in pulled_titles if t.strip() in TASK1_IMAGE_SHEETS]
+        if changed_img_tabs:
+            try:
+                extract_task1_images(spreadsheet_id, changed_img_tabs)
+            except Exception as exc:
+                print(f"[Cảnh báo] Không trích xuất được ảnh Task 1: {exc}")
 
     # 4. Save updated config & state snapshot
     config["sheet_map"] = sheet_map
