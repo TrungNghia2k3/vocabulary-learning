@@ -17,6 +17,7 @@ import type { Accent } from '../types';
 import { speakText } from '../utils/speech';
 import {
   playTypingSound,
+  preloadTypingSoundProfile,
   TYPING_SOUND_PROFILES,
   type TypingSoundProfile,
 } from '../utils/typingSound';
@@ -185,11 +186,17 @@ export function EssayTypingPractice({
     } catch {
       // ignore storage errors
     }
-    return 'thock';
+    return 'cherrymx-black-abs';
   });
   const lastActiveProfileRef = useRef<Exclude<TypingSoundProfile, 'off'>>(
-    soundProfile === 'off' ? 'thock' : soundProfile
+    soundProfile === 'off' ? 'cherrymx-black-abs' : soundProfile
   );
+
+  useEffect(() => {
+    if (soundProfile !== 'off') {
+      preloadTypingSoundProfile(soundProfile);
+    }
+  }, [soundProfile]);
 
   const changeSoundProfile = (next: TypingSoundProfile, preview = true) => {
     if (next !== 'off') {
