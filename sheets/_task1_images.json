@@ -40,6 +40,17 @@
   },
   "IELTS Map": {
     "6": "/task1-images/ielts-map-r6.jpg",
-    "16": "/task1-images/ielts-map-r16.jpg"
+    "16": "/task1-images/ielts-map-r16.jpg",
+    "40": "/task1-images/ielts-map-r40.png",
+    "60": "/task1-images/ielts-map-r60.png",
+    "87": "/task1-images/ielts-map-r87.png",
+    "102": "/task1-images/ielts-map-r102.png",
+    "111": "/task1-images/ielts-map-r111.png",
+    "115": "/task1-images/ielts-map-r115.png",
+    "118": "/task1-images/ielts-map-r118.png",
+    "126": "/task1-images/ielts-map-r126.png",
+    "148": "/task1-images/ielts-map-r148.png",
+    "169": "/task1-images/ielts-map-r169.png",
+    "179": "/task1-images/ielts-map-r179.png"
   }
 }
