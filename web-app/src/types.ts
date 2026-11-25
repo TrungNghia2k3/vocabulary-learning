@@ -234,6 +234,7 @@ export interface SongLyricItem {
   videoId?: string;
   title: string;
   artist: string;
+  album?: string;
   status: 'Pending' | 'Done';
   genreVibe?: string;
   contextStory?: string;

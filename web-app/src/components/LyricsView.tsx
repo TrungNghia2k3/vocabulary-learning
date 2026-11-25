@@ -6,6 +6,7 @@ import {
   ChevronRight,
   ChevronUp,
   Clock,
+  Disc3,
   ExternalLink,
   Eye,
   EyeOff,
@@ -16,6 +17,7 @@ import {
   Music,
   Search,
   Sparkles,
+  User,
   Volume2,
   X,
 } from 'lucide-react';
@@ -50,6 +52,8 @@ function getRegisterBadge(register?: string): string {
 
 export function LyricsView({ songs, accent }: LyricsViewProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [albumFilter, setAlbumFilter] = useState<string>('ALL');
+  const [artistFilter, setArtistFilter] = useState<string>('ALL');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string>(songs[0]?.id || '');
@@ -59,10 +63,32 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
   const [showNotes, setShowNotes] = useState(true);
   const [lyricSearch, setLyricSearch] = useState('');
 
+  const albums = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of songs) {
+      const alb = s.album || 'Single / Khác';
+      map.set(alb, (map.get(alb) || 0) + 1);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+  }, [songs]);
+
+  const artists = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of songs) {
+      const a = s.artist || 'Unknown Artist';
+      map.set(a, (map.get(a) || 0) + 1);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+  }, [songs]);
+
   const filteredSongs = useMemo(() => {
-    if (statusFilter === 'ALL') return songs;
-    return songs.filter((s) => s.status === statusFilter);
-  }, [songs, statusFilter]);
+    return songs.filter((s) => {
+      if (statusFilter !== 'ALL' && s.status !== statusFilter) return false;
+      if (albumFilter !== 'ALL' && (s.album || 'Single / Khác') !== albumFilter) return false;
+      if (artistFilter !== 'ALL' && (s.artist || 'Unknown Artist') !== artistFilter) return false;
+      return true;
+    });
+  }, [songs, statusFilter, albumFilter, artistFilter]);
 
   const pickerFiltered = useMemo(() => {
     const q = pickerSearch.trim().toLowerCase();
@@ -71,6 +97,7 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
       (s) =>
         s.title.toLowerCase().includes(q) ||
         s.artist.toLowerCase().includes(q) ||
+        (s.album || '').toLowerCase().includes(q) ||
         (s.genreVibe || '').toLowerCase().includes(q)
     );
   }, [filteredSongs, pickerSearch]);
@@ -240,6 +267,87 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
           </div>
         </div>
 
+        {/* Album / Playlist & Artist Filter Row */}
+        {(albums.length > 1 || artists.length > 1) && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-2.5 text-xs dark:border-slate-800">
+            {albums.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                  <Disc3 className="h-3.5 w-3.5 text-fuchsia-500" /> Album:
+                </span>
+                <button
+                  onClick={() => setAlbumFilter('ALL')}
+                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold transition ${
+                    albumFilter === 'ALL'
+                      ? 'bg-fuchsia-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                >
+                  Tất cả
+                </button>
+                {albums.map(([alb, count]) => (
+                  <button
+                    key={alb}
+                    onClick={() => setAlbumFilter(alb)}
+                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold transition ${
+                      albumFilter === alb
+                        ? 'bg-fuchsia-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                    }`}
+                  >
+                    {alb} ({count})
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {artists.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                  <User className="h-3.5 w-3.5 text-indigo-500" /> Nghệ sĩ:
+                </span>
+                <button
+                  onClick={() => setArtistFilter('ALL')}
+                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold transition ${
+                    artistFilter === 'ALL'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                >
+                  Tất cả
+                </button>
+                {artists.map(([art, count]) => (
+                  <button
+                    key={art}
+                    onClick={() => setArtistFilter(art)}
+                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold transition ${
+                      artistFilter === art
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                    }`}
+                  >
+                    {art} ({count})
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {(albumFilter !== 'ALL' || artistFilter !== 'ALL' || statusFilter !== 'ALL') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAlbumFilter('ALL');
+                  setArtistFilter('ALL');
+                  setStatusFilter('ALL');
+                }}
+                className="text-[11px] font-bold text-rose-600 hover:underline dark:text-rose-400"
+              >
+                Xóa bộ lọc
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Compact 1-Row Active Song Selector Strip */}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800">
           <button
@@ -262,8 +370,13 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-[11px] font-extrabold text-slate-500">
-                  Bài {activeIdx + 1}/{filteredSongs.length}
+                  Bài {Math.max(1, activeIdx + 1)}/{Math.max(1, filteredSongs.length)}
                 </span>
+                {activeSong.album && (
+                  <span className="rounded bg-fuchsia-100 px-1.5 py-0.5 text-[10px] font-bold text-fuchsia-700 dark:bg-fuchsia-950 dark:text-fuchsia-300">
+                    {activeSong.album}
+                  </span>
+                )}
                 <span
                   className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
                     activeSong.status === 'Done'
@@ -391,7 +504,12 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
                         {song.title}
                       </p>
                       <p className="truncate text-[11px] text-slate-500">{song.artist}</p>
-                      <div className="mt-1 flex items-center gap-1.5">
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        {song.album && (
+                          <span className="rounded bg-fuchsia-100 px-1.5 py-0.5 text-[10px] font-bold text-fuchsia-700 dark:bg-fuchsia-950 dark:text-fuchsia-300">
+                            {song.album}
+                          </span>
+                        )}
                         <span
                           className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
                             song.status === 'Done'

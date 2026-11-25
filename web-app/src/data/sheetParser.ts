@@ -1382,6 +1382,7 @@ function parseLyricsSheet(rows: string[][]): SongLyricItem[] {
   const vocabCol = col(/slang|vocab/i, 7);
   const lrcCol = col(/lrc|synced/i, 8);
   const noteCol = col(/personal|note/i, 9);
+  const albumCol = header.findIndex((c) => /album|playlist/i.test(c || ''));
 
   const out: SongLyricItem[] = [];
   for (let i = headerIdx + 1; i < rows.length; i++) {
@@ -1405,6 +1406,7 @@ function parseLyricsSheet(rows: string[][]): SongLyricItem[] {
       videoId: extractYoutubeVideoId(youtubeUrl),
       title: rawTitle || `Bài hát #${out.length + 1} (Chờ AI lấy tên)`,
       artist: artist || (status === 'Pending' ? 'Chờ AI phân tích' : 'Unknown Artist'),
+      album: albumCol >= 0 ? (r[albumCol] || '').trim() || undefined : undefined,
       status,
       genreVibe: (r[genreCol] || '').trim() || undefined,
       contextStory: (r[contextCol] || '').trim() || undefined,
