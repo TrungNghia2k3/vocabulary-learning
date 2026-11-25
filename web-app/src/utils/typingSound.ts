@@ -5,6 +5,8 @@ export type TypingSoundKind = 'key' | 'space' | 'error' | 'complete';
 export type TypingSoundProfile =
   | 'off'
   | 'thock'
+  | 'midnight'
+  | 'frost'
   | 'blue'
   | 'typewriter'
   | 'bubble'
@@ -17,6 +19,8 @@ export const TYPING_SOUND_PROFILES: Array<{
 }> = [
   { id: 'off', label: 'Tắt tiếng', desc: 'Im lặng hoàn toàn' },
   { id: 'thock', label: 'Creamy Thock', desc: 'Phím cơ trầm ấm, êm tai' },
+  { id: 'midnight', label: 'Midnight Thock', desc: 'Siêu trầm, êm sâu kiểu gasket đêm khuya' },
+  { id: 'frost', label: 'Frost Click', desc: 'Tách trong trẻo, sắc lạnh như pha lê' },
   { id: 'blue', label: 'Clicky Blue', desc: 'Phím cơ xanh kêu tách giòn' },
   { id: 'typewriter', label: 'Máy đánh chữ', desc: 'Cơ học cổ điển, có tiếng chuông' },
   { id: 'bubble', label: 'Soft Pop', desc: 'Âm pop nhẹ nhàng, thư giãn' },
@@ -142,6 +146,22 @@ export function playTypingSound(
       // Deep, creamy lubed mechanical switch
       playNoiseBurst(ctx, now, (isSpace ? 1250 : 2100) * jitter, 1.4, isSpace ? 0.14 : 0.11, isSpace ? 0.032 : 0.022);
       playTone(ctx, now, (isSpace ? 150 : 215) * jitter, (isSpace ? 68 : 95) * jitter, isSpace ? 0.14 : 0.095, isSpace ? 0.042 : 0.032, 'triangle');
+      break;
+    }
+
+    case 'midnight': {
+      // Ultra-deep, velvety foam-damped gasket-mount thock (zero harsh highs, cozy late-night feel)
+      playNoiseBurst(ctx, now, (isSpace ? 520 : 760) * jitter, 0.9, isSpace ? 0.15 : 0.11, isSpace ? 0.038 : 0.026, 'lowpass');
+      playTone(ctx, now, (isSpace ? 112 : 148) * jitter, (isSpace ? 48 : 62) * jitter, isSpace ? 0.19 : 0.145, isSpace ? 0.055 : 0.044, 'sine');
+      playTone(ctx, now + 0.004, (isSpace ? 190 : 260) * jitter, 95 * jitter, isSpace ? 0.065 : 0.045, 0.028, 'triangle');
+      break;
+    }
+
+    case 'frost': {
+      // Crisp, crystalline icy click — glassy high transient + clean cool polycarbonate snap
+      playNoiseBurst(ctx, now, (isSpace ? 3600 : 5400) * jitter, 2.8, isSpace ? 0.15 : 0.14, 0.015, 'bandpass');
+      playTone(ctx, now, (isSpace ? 2100 : 3350) * jitter, (isSpace ? 1500 : 2450) * jitter, 0.055, 0.022, 'sine');
+      playTone(ctx, now + 0.003, (isSpace ? 220 : 320) * jitter, (isSpace ? 115 : 165) * jitter, isSpace ? 0.12 : 0.08, isSpace ? 0.034 : 0.024, 'triangle');
       break;
     }
 
