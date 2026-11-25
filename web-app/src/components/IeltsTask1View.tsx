@@ -8,6 +8,7 @@ import {
   EyeOff,
   FileText,
   Image as ImageIcon,
+  Keyboard,
   ListChecks,
   PenLine,
   RotateCcw,
@@ -23,6 +24,11 @@ import type {
   IeltsTask1Section,
 } from '../types';
 import { speakText } from '../utils/speech';
+import {
+  EssayTypingPractice,
+  splitIntoPracticeSentences,
+  type EssayPracticeSentence,
+} from './EssayTypingPractice';
 
 interface IeltsTask1ViewProps {
   items: IeltsTask1Item[];
@@ -30,7 +36,7 @@ interface IeltsTask1ViewProps {
   accent: Accent;
 }
 
-type StudyTab = 'breakdown' | 'essay' | 'practice';
+type StudyTab = 'breakdown' | 'essay' | 'typing' | 'practice';
 type TopSection = 'tasks' | 'examples';
 
 const PART_STYLES: Record<
@@ -101,6 +107,7 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
   const [typeFilter, setTypeFilter] = useState<'all' | 'chart' | 'map' | 'process'>('all');
   const [examplePartFilter, setExamplePartFilter] = useState<string>('ALL');
   const [exampleSearch, setExampleSearch] = useState('');
+  const [exampleTypingMode, setExampleTypingMode] = useState(false);
   const [copiedExId, setCopiedExId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string>(items[0]?.id || '');
   const [studyTab, setStudyTab] = useState<StudyTab>('breakdown');
@@ -175,6 +182,41 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
       return next;
     });
   };
+
+  const task1TypingSentences = useMemo<EssayPracticeSentence[]>(() => {
+    if (!activeTask) return [];
+    const out: EssayPracticeSentence[] = [];
+    for (const sec of activeTask.sections) {
+      const chosenRows =
+        sec.part === 'Introduction' && sec.sentences.length > 1
+          ? [sec.sentences[Math.min(introIdx, sec.sentences.length - 1)]]
+          : sec.part === 'Overview' && sec.sentences.length > 1
+            ? [sec.sentences[Math.min(overviewIdx, sec.sentences.length - 1)]]
+            : sec.sentences;
+
+      chosenRows.forEach((row, rIdx) => {
+        const split = splitIntoPracticeSentences(row.text);
+        split.forEach((s, sIdx) => {
+          out.push({
+            id: `${activeTask.id}::${sec.part}::${rIdx}::${sIdx}`,
+            part: sec.part,
+            text: s,
+            meaning: sIdx === 0 ? row.meaning : undefined,
+          });
+        });
+      });
+    }
+    return out;
+  }, [activeTask, introIdx, overviewIdx]);
+
+  const exampleTypingSentences = useMemo<EssayPracticeSentence[]>(() => {
+    return filteredExamples.map((ex) => ({
+      id: ex.id,
+      part: `${ex.sourceSheet.replace(/^IELTS\s+/i, '')} · ${ex.part}`,
+      text: ex.text,
+      meaning: ex.meaning,
+    }));
+  }, [filteredExamples]);
 
   if (items.length === 0) {
     return (
@@ -378,19 +420,40 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
               ))}
             </div>
 
-            <div className="relative sm:w-72">
-              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={exampleSearch}
-                onChange={(e) => setExampleSearch(e.target.value)}
-                placeholder="Tìm mẫu câu Example..."
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pr-3 pl-9 text-xs outline-none focus:border-indigo-500 focus:bg-white dark:border-slate-700 dark:bg-slate-800"
-              />
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setExampleTypingMode((v) => !v)}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                  exampleTypingMode
+                    ? 'bg-emerald-600 text-white shadow-xs hover:bg-emerald-700'
+                    : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300'
+                }`}
+              >
+                <Keyboard className="h-3.5 w-3.5" />
+                {exampleTypingMode ? 'Quay lại danh sách mẫu' : 'Luyện gõ bộ Example này'}
+              </button>
+
+              <div className="relative sm:w-64">
+                <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={exampleSearch}
+                  onChange={(e) => setExampleSearch(e.target.value)}
+                  placeholder="Tìm mẫu câu Example..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pr-3 pl-9 text-xs outline-none focus:border-indigo-500 focus:bg-white dark:border-slate-700 dark:bg-slate-800"
+                />
+              </div>
             </div>
           </div>
 
-          {filteredExamples.length === 0 ? (
+          {exampleTypingMode ? (
+            <EssayTypingPractice
+              title={`Luyện gõ mẫu câu Task 1 Example (${exampleTypingSentences.length} câu)`}
+              subtitle="Gõ lại chính xác từng câu mẫu Introduction / Overview để thuộc khung câu học thuật."
+              sentences={exampleTypingSentences}
+              accent={accent}
+            />
+          ) : filteredExamples.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-12 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">
               Không tìm thấy mẫu câu Example phù hợp.
             </div>
@@ -556,11 +619,12 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
           {/* RIGHT: Interactive 3-Tab Study Panel */}
           <div className="space-y-4 lg:col-span-7">
             {/* Mode Switcher */}
-            <div className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-xs sm:grid-cols-4 dark:border-slate-800 dark:bg-slate-900">
               {[
                 { id: 'breakdown', label: 'Phân tích cấu trúc', icon: BookOpen },
                 { id: 'essay', label: 'Bài mẫu hoàn chỉnh', icon: FileText },
-                { id: 'practice', label: 'Luyện viết theo ảnh', icon: PenLine },
+                { id: 'typing', label: 'Luyện gõ Essay', icon: Keyboard },
+                { id: 'practice', label: 'Tự viết theo ảnh', icon: PenLine },
               ].map((t) => {
                 const Icon = t.icon;
                 const active = studyTab === t.id;
@@ -626,7 +690,7 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
                                 </span>
                               )}
                               <p className="text-sm leading-relaxed font-medium text-slate-800 dark:text-slate-100">
-                                {sent.text}
+                                {renderHighlightedTemplate(sent.text)}
                               </p>
                               {sent.meaning && (
                                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -635,7 +699,7 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
                               )}
                             </div>
                             <button
-                              onClick={() => speakText(sent.text, accent, 0.92)}
+                              onClick={() => speakText(sent.text.replace(/[[\]]/g, ''), accent, 0.92)}
                               title="Phát âm câu này"
                               className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950"
                             >
@@ -748,13 +812,23 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
 
                 <div className="mt-5 space-y-4 text-[15px] leading-7 text-slate-800 dark:text-slate-100">
                   {fullParagraphs.map((para, idx) => (
-                    <p key={idx}>{para}</p>
+                    <p key={idx}>{renderHighlightedTemplate(para)}</p>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* TAB 3: Write & Compare Practice */}
+            {/* TAB 3: Essay Typing Practice (Memorize Format Sentence by Sentence) */}
+            {studyTab === 'typing' && (
+              <EssayTypingPractice
+                title={`Luyện gõ thuộc bài mẫu Task 1 (${activeTask.chartType})`}
+                subtitle="Gõ lại chính xác từng câu của bài Essay (Introduction → Overview → Body 1 → Body 2) để ghi nhớ cấu trúc học thuật."
+                sentences={task1TypingSentences}
+                accent={accent}
+              />
+            )}
+
+            {/* TAB 4: Write & Compare Practice */}
             {studyTab === 'practice' && (
               <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">

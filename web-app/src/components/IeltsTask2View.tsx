@@ -10,6 +10,7 @@ import {
   EyeOff,
   FilePenLine,
   FileText,
+  Keyboard,
   Layers,
   LayoutTemplate,
   PenLine,
@@ -23,6 +24,11 @@ import {
 } from 'lucide-react';
 import type { Accent, IeltsTask2Format, IeltsTask2Prompt } from '../types';
 import { speakText } from '../utils/speech';
+import {
+  EssayTypingPractice,
+  splitIntoPracticeSentences,
+  type EssayPracticeSentence,
+} from './EssayTypingPractice';
 
 interface IeltsTask2ViewProps {
   prompts: IeltsTask2Prompt[];
@@ -31,7 +37,7 @@ interface IeltsTask2ViewProps {
 }
 
 type TopMode = 'prompts' | 'formats';
-type Task2Tab = 'expressions' | 'sample' | 'writer' | 'drill';
+type Task2Tab = 'expressions' | 'sample' | 'typing' | 'writer' | 'drill';
 
 const ESSAY_PARTS = [
   {
@@ -166,6 +172,8 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
   const [promptTypeFilter, setPromptTypeFilter] = useState<string>('ALL');
   const [formatTypeFilter, setFormatTypeFilter] = useState<string>('ALL');
   const [formatSearch, setFormatSearch] = useState('');
+  const [typingFormatIdInLibrary, setTypingFormatIdInLibrary] = useState<string | null>(null);
+  const [promptTypingSource, setPromptTypingSource] = useState<'sample' | 'format'>('sample');
 
   const [selectedId, setSelectedId] = useState<string>(prompts[0]?.id || '');
   const [tab, setTab] = useState<Task2Tab>('expressions');
@@ -248,12 +256,13 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
 
     // Choose sensible default tab for this prompt
     if (activePrompt.expressions.length === 0 && activePrompt.sampleSections.length > 0) {
-      setTab((prev) => (prev === 'writer' ? 'writer' : 'sample'));
+      setTab((prev) => (prev === 'writer' || prev === 'typing' ? prev : 'sample'));
       setWriterSidebarMode('sample');
     } else {
       setTab((prev) => (prev === 'sample' && activePrompt.sampleSections.length === 0 ? 'expressions' : prev));
       setWriterSidebarMode('expressions');
     }
+    setPromptTypingSource(activePrompt.sampleSections.length > 0 ? 'sample' : 'format');
 
     // Auto-select matching format for the prompt's Question Type if current selection doesn't match
     const key = normalizeTypeKey(activePrompt.questionType);
@@ -359,6 +368,48 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
       );
     });
   }, [formats, formatTypeFilter, formatSearch]);
+
+  const buildSentencesFromSections = (
+    prefix: string,
+    sections: Array<{ part: string; text: string }>
+  ): EssayPracticeSentence[] => {
+    const out: EssayPracticeSentence[] = [];
+    sections.forEach((sec, pIdx) => {
+      const split = splitIntoPracticeSentences(sec.text);
+      split.forEach((s, sIdx) => {
+        out.push({
+          id: `${prefix}::${pIdx}::${sIdx}`,
+          part: sec.part,
+          text: s,
+        });
+      });
+    });
+    return out;
+  };
+
+  const libraryTypingFormat = useMemo(() => {
+    if (!typingFormatIdInLibrary) return null;
+    return formats.find((f) => f.id === typingFormatIdInLibrary) || null;
+  }, [formats, typingFormatIdInLibrary]);
+
+  const libraryFormatTypingSentences = useMemo(() => {
+    if (!libraryTypingFormat) return [];
+    return buildSentencesFromSections(libraryTypingFormat.id, libraryTypingFormat.sections);
+  }, [libraryTypingFormat]);
+
+  const promptTypingSentences = useMemo(() => {
+    if (!activePrompt) return [];
+    if (promptTypingSource === 'sample' && activePrompt.sampleSections.length > 0) {
+      return buildSentencesFromSections(`${activePrompt.id}::sample`, activePrompt.sampleSections);
+    }
+    if (activeWriterFormat) {
+      return buildSentencesFromSections(
+        `${activePrompt.id}::${activeWriterFormat.id}`,
+        activeWriterFormat.sections
+      );
+    }
+    return [];
+  }, [activePrompt, promptTypingSource, activeWriterFormat]);
 
   if (prompts.length === 0 && formats.length === 0) {
     return (
@@ -572,7 +623,36 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
             </p>
           </div>
 
-          {filteredFormats.length === 0 ? (
+          {libraryTypingFormat ? (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-indigo-200 bg-indigo-50/70 px-4 py-3 dark:border-indigo-900 dark:bg-indigo-950/30">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-extrabold ${getQuestionTypeBadge(
+                      libraryTypingFormat.questionType
+                    )}`}
+                  >
+                    {libraryTypingFormat.questionType}
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 dark:text-white">
+                    {libraryTypingFormat.variantLabel}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setTypingFormatIdInLibrary(null)}
+                  className="inline-flex items-center gap-1 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" /> Quay lại danh sách khung
+                </button>
+              </div>
+              <EssayTypingPractice
+                title={`Luyện gõ thuộc khung: ${libraryTypingFormat.questionType}`}
+                subtitle={`${libraryTypingFormat.variantLabel} — Gõ lại từng câu trong 4 đoạn để thuộc nằm lòng cấu trúc bài luận.`}
+                sentences={libraryFormatTypingSentences}
+                accent={accent}
+              />
+            </div>
+          ) : filteredFormats.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">
               Không tìm thấy khung bài mẫu nào phù hợp.
             </div>
@@ -617,6 +697,12 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                               <Copy className="h-3.5 w-3.5" /> Sao chép cả khung
                             </>
                           )}
+                        </button>
+                        <button
+                          onClick={() => setTypingFormatIdInLibrary(fmt.id)}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700"
+                        >
+                          <Keyboard className="h-3.5 w-3.5" /> Luyện gõ khung này
                         </button>
                         <button
                           onClick={() => useFormatInWriterFromLibrary(fmt)}
@@ -745,6 +831,14 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                       },
                     ]
                   : []),
+                {
+                  id: 'typing' as Task2Tab,
+                  label:
+                    activePrompt.sampleSections.length > 0
+                      ? 'Luyện gõ Essay'
+                      : 'Luyện gõ Format',
+                  icon: Keyboard,
+                },
                 {
                   id: 'writer' as Task2Tab,
                   label: 'Luyện viết (kèm khung mẫu)',
@@ -985,6 +1079,78 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* TAB 2.5: Essay / Format Typing Practice */}
+          {tab === 'typing' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold text-slate-500">Nguồn câu luyện gõ:</span>
+                  {activePrompt.sampleSections.length > 0 && (
+                    <button
+                      onClick={() => setPromptTypingSource('sample')}
+                      className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                        promptTypingSource === 'sample'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                      }`}
+                    >
+                      Bài mẫu 4 phần của đề này
+                    </button>
+                  )}
+                  {formats.length > 0 && (
+                    <button
+                      onClick={() => setPromptTypingSource('format')}
+                      className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                        promptTypingSource === 'format' || activePrompt.sampleSections.length === 0
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                      }`}
+                    >
+                      Khung bài mẫu (Format)
+                    </button>
+                  )}
+                </div>
+
+                {(promptTypingSource === 'format' || activePrompt.sampleSections.length === 0) &&
+                  formats.length > 0 &&
+                  activeWriterFormat && (
+                    <select
+                      value={activeWriterFormat.id}
+                      onChange={(e) => setSelectedFormatId(e.target.value)}
+                      className="min-w-[220px] rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                    >
+                      {formats.map((f) => {
+                        const isMatch =
+                          normalizeTypeKey(f.questionType) ===
+                          normalizeTypeKey(activePrompt.questionType);
+                        return (
+                          <option key={f.id} value={f.id}>
+                            {isMatch ? '★ ' : ''}
+                            {f.questionType} — {f.variantLabel}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  )}
+              </div>
+
+              <EssayTypingPractice
+                title={
+                  promptTypingSource === 'sample' && activePrompt.sampleSections.length > 0
+                    ? `Luyện gõ thuộc bài mẫu Task 2 (${activePrompt.questionType})`
+                    : `Luyện gõ thuộc khung Format: ${activeWriterFormat?.questionType || activePrompt.questionType}`
+                }
+                subtitle={
+                  promptTypingSource === 'sample' && activePrompt.sampleSections.length > 0
+                    ? 'Gõ lại chính xác từng câu của bài luận mẫu 4 phần để ghi nhớ cấu trúc học thuật.'
+                    : `${activeWriterFormat?.variantLabel || ''} — Gõ lại từng câu của khung mẫu 4 đoạn để thuộc nằm lòng bố cục.`
+                }
+                sentences={promptTypingSentences}
+                accent={accent}
+              />
             </div>
           )}
 

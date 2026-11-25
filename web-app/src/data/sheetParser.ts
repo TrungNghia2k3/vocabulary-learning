@@ -757,6 +757,7 @@ function detectChartType(text: string, fallback: string): string {
 
 function makeTask1Title(intro: string, idx: number): string {
   const cleaned = intro
+    .replace(/[[\]]/g, '')
     .replace(
       /^the\s+(?:bar\s+charts?|line\s+graphs?|pie\s+charts?|graphs?|charts?|tables?|maps?|diagrams?)\s+(?:below\s+)?(?:illustrates?|shows?|compares?|gives?\s+information\s+about|depicts?)\s+/i,
       ''
@@ -898,6 +899,18 @@ function parseIeltsTask1Sheet(
       sections,
     };
   });
+
+  // If a rewrite/variant essay for the exact same prompt immediately follows without a duplicate pasted image,
+  // reuse the matching prompt's image cleanly.
+  const imageByTitle = new Map<string, string>();
+  for (const t of tasks) {
+    const key = t.title.toLowerCase().trim();
+    if (t.imageUrl) {
+      imageByTitle.set(key, t.imageUrl);
+    } else if (imageByTitle.has(key)) {
+      t.imageUrl = imageByTitle.get(key);
+    }
+  }
 
   return { tasks, examples };
 }
