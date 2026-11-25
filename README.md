@@ -50,6 +50,9 @@ Mở trình duyệt tại `http://localhost:5173`. Mỗi khi bạn chỉnh sửa
   - Riêng `Core Vocabulary`:
     - `Synonyms` / `Antonyms`: cách nhau bằng dấu `;` — ví dụ: `progress (sự tiến bộ); growth (tăng trưởng)`.
     - `Word Family`: mỗi từ loại 1 dòng — ví dụ: `noun: advance (sự tiến bộ), advancement (sự tiến bộ)`.
+- **Sheet `Lyrics` (giải mã lời nhạc YouTube Music cùng AI Agent):**
+  - Bạn chỉ cần dán **link YouTube Music** (`https://music.youtube.com/watch?v=...`) vào cột `A (YouTube Link)`, để trống các cột còn lại (hoặc chọn `Status = Pending`), rồi nhắn **"Kiểm tra thay đổi / status"**.
+  - AI Agent sẽ tự lấy metadata & lyric, giải mã từng đoạn/từng câu (giữ nguyên sắc thái phóng khoáng/slang/ẩn ý gốc theo định dạng `[Section]` + `EN => Nghĩa sát gốc || Giải mã ẩn ý`) và trích kho `Key Slang & Vocab` (`phrase | Register | Nghĩa | Ngữ cảnh | Câu trích`), sau đó đổi `Status` thành `Done`, đồng bộ & đẩy lên tab **Lyrics Studio** trên web.
 
 ### 3. Khi tạo một Sheet (Tab) mới hoàn toàn
 1. Bấm dấu **`+`** tạo tab mới trên Google Sheet.

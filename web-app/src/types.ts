@@ -15,7 +15,8 @@ export type AppMode =
   | 'collocations'
   | 'ielts-task1'
   | 'ielts-task2'
-  | 'ielts-speaking';
+  | 'ielts-speaking'
+  | 'lyrics';
 
 export interface WordPair {
   word: string;
@@ -208,6 +209,40 @@ export interface IeltsSpeakingItem {
   topic?: string;
 }
 
+export interface LyricLine {
+  en: string;
+  vi?: string;
+  note?: string;
+}
+
+export interface LyricSection {
+  label: string;
+  lines: LyricLine[];
+}
+
+export interface LyricVocabItem {
+  phrase: string;
+  register?: string;
+  meaning: string;
+  usage?: string;
+  quote?: string;
+}
+
+export interface SongLyricItem {
+  id: string;
+  youtubeUrl: string;
+  videoId?: string;
+  title: string;
+  artist: string;
+  status: 'Pending' | 'Done';
+  genreVibe?: string;
+  contextStory?: string;
+  sections: LyricSection[];
+  vocab: LyricVocabItem[];
+  syncedLrc?: string;
+  personalNote?: string;
+}
+
 export interface ParsedLibrary {
   vocab: VocabItem[];
   decks: DeckInfo[];
@@ -220,5 +255,6 @@ export interface ParsedLibrary {
   ieltsTask2: IeltsTask2Prompt[];
   ieltsTask2Formats: IeltsTask2Format[];
   ieltsSpeaking: IeltsSpeakingItem[];
+  lyrics: SongLyricItem[];
   loadedAt: string;
 }

@@ -15,6 +15,7 @@ import {
   List,
   MessageSquareQuote,
   Mic,
+  Music,
   Puzzle,
   Sparkles,
   TrendingUp,
@@ -150,6 +151,13 @@ export function Dashboard({
       count: library.ieltsSpeaking.length,
       icon: Mic,
       subtitle: 'Nghe lại từng câu để Shadowing, ghi âm đối chiếu, so khớp phát âm & thi thử',
+    },
+    {
+      mode: 'lyrics',
+      title: 'Lyrics Studio',
+      count: library.lyrics.length,
+      icon: Music,
+      subtitle: 'Nghe YouTube Music, giải mã từng câu lời, slang, ẩn ý & văn hóa gốc',
     },
     {
       mode: 'prepositions',

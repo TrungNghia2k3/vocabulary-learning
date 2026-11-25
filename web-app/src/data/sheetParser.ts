@@ -11,11 +11,15 @@ import type {
   IeltsTask2Format,
   IeltsTask2Prompt,
   IeltsTask2Section,
+  LyricLine,
+  LyricSection,
+  LyricVocabItem,
   ParsedLibrary,
   PhrasalVerbItem,
   PrepositionItem,
   PrepositionMistake,
   PrepositionUse,
+  SongLyricItem,
   SpeakingPart,
   VocabItem,
   WordDefinition,
@@ -1288,6 +1292,131 @@ function parseIeltsSpeaking(rows: string[][]): IeltsSpeakingItem[] {
   return out;
 }
 
+function extractYoutubeVideoId(url: string): string | undefined {
+  const s = url.trim();
+  if (!s) return undefined;
+  const patterns = [
+    /[?&]v=([a-zA-Z0-9_-]{11})/,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/(?:embed|shorts|live)\/([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const re of patterns) {
+    const m = s.match(re);
+    if (m) return m[1];
+  }
+  return undefined;
+}
+
+function parseLyricsBreakdown(raw: string): LyricSection[] {
+  const lines = splitLines(raw);
+  if (lines.length === 0) return [];
+  const sections: LyricSection[] = [];
+  let current: LyricSection | null = null;
+
+  for (const line of lines) {
+    if (/^\[[^\]]+\]$/.test(line)) {
+      current = { label: line, lines: [] };
+      sections.push(current);
+      continue;
+    }
+    if (!current) {
+      current = { label: '[Lyrics]', lines: [] };
+      sections.push(current);
+    }
+    const [enAndVi, noteRaw] = line.split(/\s*\|\|\s*/);
+    const [enRaw, viRaw] = (enAndVi || '').split(/\s*=>\s*/);
+    const parsed: LyricLine = {
+      en: (enRaw || '').trim(),
+      vi: viRaw ? viRaw.trim() : undefined,
+      note: noteRaw ? noteRaw.trim() : undefined,
+    };
+    if (parsed.en) current.lines.push(parsed);
+  }
+  return sections.filter((s) => s.lines.length > 0);
+}
+
+function parseLyricsVocab(raw: string): LyricVocabItem[] {
+  const out: LyricVocabItem[] = [];
+  for (const line of splitLines(raw)) {
+    const cleaned = line.replace(/^[-•*\d.]+\s*/, '').trim();
+    if (!cleaned) continue;
+    const parts = cleaned.split(/\s*\|\s*/);
+    const phrase = (parts[0] || '').trim();
+    if (!phrase) continue;
+    if (parts.length >= 3) {
+      out.push({
+        phrase,
+        register: parts[1]?.trim() || undefined,
+        meaning: parts[2]?.trim() || '',
+        usage: parts[3]?.trim() || undefined,
+        quote: parts[4]?.trim() || undefined,
+      });
+    } else {
+      out.push({
+        phrase,
+        meaning: parts[1]?.trim() || '',
+      });
+    }
+  }
+  return out;
+}
+
+function parseLyricsSheet(rows: string[][]): SongLyricItem[] {
+  const headerIdx = rows.findIndex((r) =>
+    r.some((c) => /youtube\s*link|song\s*title/i.test(c || ''))
+  );
+  if (headerIdx === -1) return [];
+  const header = rows[headerIdx] || [];
+  const col = (re: RegExp, fallback: number) => {
+    const idx = header.findIndex((c) => re.test(c || ''));
+    return idx >= 0 ? idx : fallback;
+  };
+
+  const urlCol = col(/youtube|link|url/i, 0);
+  const titleCol = col(/song\s*title|title|tên bài/i, 1);
+  const artistCol = col(/artist|ca sĩ/i, 2);
+  const statusCol = col(/status|trạng thái/i, 3);
+  const genreCol = col(/genre|vibe/i, 4);
+  const contextCol = col(/context|story|bối cảnh/i, 5);
+  const breakdownCol = col(/breakdown|lyrics/i, 6);
+  const vocabCol = col(/slang|vocab/i, 7);
+  const lrcCol = col(/lrc|synced/i, 8);
+  const noteCol = col(/personal|note/i, 9);
+
+  const out: SongLyricItem[] = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const r = rows[i];
+    const youtubeUrl = (r[urlCol] || '').trim();
+    const rawTitle = (r[titleCol] || '').trim();
+    const artist = (r[artistCol] || '').trim();
+    if (!youtubeUrl && !rawTitle) continue;
+
+    const sections = parseLyricsBreakdown(r[breakdownCol] || '');
+    const vocab = parseLyricsVocab(r[vocabCol] || '');
+    const rawStatus = (r[statusCol] || '').trim();
+    const status: 'Pending' | 'Done' =
+      sections.length > 0 || vocab.length > 0 || /^done$/i.test(rawStatus)
+        ? 'Done'
+        : 'Pending';
+
+    out.push({
+      id: `lyric::${out.length + 1}`,
+      youtubeUrl,
+      videoId: extractYoutubeVideoId(youtubeUrl),
+      title: rawTitle || `Bài hát #${out.length + 1} (Chờ AI lấy tên)`,
+      artist: artist || (status === 'Pending' ? 'Chờ AI phân tích' : 'Unknown Artist'),
+      status,
+      genreVibe: (r[genreCol] || '').trim() || undefined,
+      contextStory: (r[contextCol] || '').trim() || undefined,
+      sections,
+      vocab,
+      syncedLrc: (r[lrcCol] || '').trim() || undefined,
+      personalNote: (r[noteCol] || '').trim() || undefined,
+    });
+  }
+  return out;
+}
+
 const SKIP_SHEETS = new Set(['Template']);
 
 export function buildLibrary(): ParsedLibrary {
@@ -1302,6 +1431,7 @@ export function buildLibrary(): ParsedLibrary {
   const ieltsTask2: IeltsTask2Prompt[] = [];
   const ieltsTask2Formats: IeltsTask2Format[] = [];
   const ieltsSpeaking: IeltsSpeakingItem[] = [];
+  const lyrics: SongLyricItem[] = [];
 
   const preferredOrder = [
     'Comprehensible Input',
@@ -1314,6 +1444,7 @@ export function buildLibrary(): ParsedLibrary {
     'IELTS Map',
     'IELTS Process',
     'IELTS Listening',
+    'Lyrics',
     'Adjective',
     'Verb',
     'Adjective Practice',
@@ -1378,6 +1509,18 @@ export function buildLibrary(): ParsedLibrary {
         count: parsedMapVocab.length,
         hasImages: tasks.some((t) => Boolean(t.imageUrl)),
         kind: parsedMapVocab.length > 0 ? 'vocab' : 'empty',
+      });
+      continue;
+    }
+    if (name === 'Lyrics') {
+      const parsed = parseLyricsSheet(rows);
+      lyrics.push(...parsed);
+      decks.push({
+        name,
+        fileName,
+        count: parsed.length,
+        hasImages: false,
+        kind: parsed.length > 0 ? 'special' : 'empty',
       });
       continue;
     }
@@ -1487,6 +1630,7 @@ export function buildLibrary(): ParsedLibrary {
     ieltsTask2,
     ieltsTask2Formats,
     ieltsSpeaking,
+    lyrics,
     loadedAt,
   };
 }
