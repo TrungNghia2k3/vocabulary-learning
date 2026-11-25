@@ -15,7 +15,11 @@ import {
 } from 'lucide-react';
 import type { Accent } from '../types';
 import { speakText } from '../utils/speech';
-import { playTypingSound } from '../utils/typingSound';
+import {
+  playTypingSound,
+  TYPING_SOUND_PROFILES,
+  type TypingSoundProfile,
+} from '../utils/typingSound';
 
 export interface EssayPracticeSentence {
   id: string;
@@ -169,26 +173,45 @@ export function EssayTypingPractice({
   const [peekHidden, setPeekHidden] = useState(false);
   const [ignoreCaseAndPunct, setIgnoreCaseAndPunct] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+  const [soundProfile, setSoundProfile] = useState<TypingSoundProfile>(() => {
     try {
-      const saved = localStorage.getItem('vocabStudio:typingSound');
-      return saved === null ? true : saved === 'true';
-    } catch {
-      return true;
-    }
-  });
-
-  const toggleSound = () => {
-    setSoundEnabled((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem('vocabStudio:typingSound', String(next));
-      } catch {
-        // ignore storage errors
+      const saved = localStorage.getItem('vocabStudio:typingSoundProfile');
+      if (saved && TYPING_SOUND_PROFILES.some((p) => p.id === saved)) {
+        return saved as TypingSoundProfile;
       }
-      if (next) playTypingSound('key');
-      return next;
-    });
+      // Migrate legacy boolean setting if present
+      const legacy = localStorage.getItem('vocabStudio:typingSound');
+      if (legacy === 'false') return 'off';
+    } catch {
+      // ignore storage errors
+    }
+    return 'thock';
+  });
+  const lastActiveProfileRef = useRef<Exclude<TypingSoundProfile, 'off'>>(
+    soundProfile === 'off' ? 'thock' : soundProfile
+  );
+
+  const changeSoundProfile = (next: TypingSoundProfile, preview = true) => {
+    if (next !== 'off') {
+      lastActiveProfileRef.current = next;
+    }
+    setSoundProfile(next);
+    try {
+      localStorage.setItem('vocabStudio:typingSoundProfile', next);
+    } catch {
+      // ignore storage errors
+    }
+    if (preview && next !== 'off') {
+      playTypingSound('key', next);
+    }
+  };
+
+  const toggleMuteSound = () => {
+    if (soundProfile === 'off') {
+      changeSoundProfile(lastActiveProfileRef.current, true);
+    } else {
+      changeSoundProfile('off', false);
+    }
   };
 
   // Typing metrics
@@ -349,17 +372,17 @@ export function EssayTypingPractice({
       normalizeForCompare(val.replace(/\n/g, ' '), ignoreCaseAndPunct) ===
       normalizeForCompare(targetClean, ignoreCaseAndPunct);
 
-    if (soundEnabled) {
+    if (soundProfile !== 'off') {
       if (matched) {
-        playTypingSound('complete');
+        playTypingSound('complete', soundProfile);
       } else if (val.length < typed.length) {
-        playTypingSound('space');
+        playTypingSound('space', soundProfile);
       } else if (newMistakes > 0) {
-        playTypingSound('error');
+        playTypingSound('error', soundProfile);
       } else if (lastAddedWasSpace) {
-        playTypingSound('space');
+        playTypingSound('space', soundProfile);
       } else if (val.length > typed.length) {
-        playTypingSound('key');
+        playTypingSound('key', soundProfile);
       }
     }
 
@@ -458,27 +481,37 @@ export function EssayTypingPractice({
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={toggleSound}
-              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
-                soundEnabled
-                  ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400'
-              }`}
-              title="Bật hoặc tắt tiếng gõ bàn phím"
-            >
-              {soundEnabled ? (
-                <>
-                  <Volume2 className="h-3.5 w-3.5" /> Tiếng gõ phím: Bật
-                </>
-              ) : (
-                <>
-                  <VolumeX className="h-3.5 w-3.5" /> Tiếng gõ phím: Tắt
-                </>
-              )}
-            </button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="inline-flex items-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+              <button
+                type="button"
+                onClick={toggleMuteSound}
+                className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-bold transition ${
+                  soundProfile !== 'off'
+                    ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300'
+                    : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+                title={soundProfile === 'off' ? 'Bật lại tiếng gõ phím' : 'Tắt nhanh tiếng gõ phím'}
+              >
+                {soundProfile !== 'off' ? (
+                  <Volume2 className="h-3.5 w-3.5" />
+                ) : (
+                  <VolumeX className="h-3.5 w-3.5" />
+                )}
+              </button>
+              <select
+                value={soundProfile}
+                onChange={(e) => changeSoundProfile(e.target.value as TypingSoundProfile, true)}
+                aria-label="Chọn kiểu tiếng gõ bàn phím"
+                className="cursor-pointer bg-transparent py-1 pr-2 pl-1.5 text-[11px] font-bold text-slate-700 outline-none dark:bg-slate-800 dark:text-slate-200"
+              >
+                {TYPING_SOUND_PROFILES.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <label className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
               <input
                 type="checkbox"
