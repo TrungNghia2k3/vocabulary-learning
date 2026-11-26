@@ -28,6 +28,7 @@ import {
   Search,
   Settings2,
   Square,
+  TextSelect,
   Trash2,
   Upload,
   Volume2,
@@ -38,6 +39,14 @@ import {
 import type { Accent, VocabItem } from '../types';
 import { speakText, stopSpeaking } from '../utils/speech';
 import { APPS_SCRIPT_WEBHOOK_CODE } from '../utils/appsScriptTemplate';
+import {
+  cleanPhraseText,
+  getCambridgeUrl,
+  getSelectedPhraseFromWindow,
+  lookupTermOnline,
+  type ReaderLookupResult,
+} from '../utils/readerLookup';
+import { ReaderLookupDrawer } from './ReaderLookupDrawer';
 import {
   BOOKS_DRIVE_FOLDER_URL,
   base64ToUint8Array,
@@ -59,19 +68,6 @@ interface BookStudioViewProps {
 }
 
 type ReaderMode = 'smart' | 'pdf';
-
-interface LookupResult {
-  word: string;
-  cleaned: string;
-  contextSentence: string;
-  loading: boolean;
-  phonetic?: string;
-  partOfSpeech?: string;
-  definitions: Array<{ def: string; example?: string }>;
-  viMeaning?: string;
-  sheetMatch?: VocabItem;
-  error?: string;
-}
 
 interface SavedBookWord {
   word: string;
@@ -301,32 +297,40 @@ async function extractParagraphsFromPage(page: PDFPageProxy): Promise<string[]> 
 }
 
 export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
-  // --- Personal Vocab Index from Google Sheets ---
-  const vocabIndex = useMemo(() => {
-    const map = new Map<string, VocabItem>();
+  // --- Personal Vocab Index from Google Sheets (words + phrases!) ---
+  const { vocabIndex, phraseVocabIndex } = useMemo(() => {
+    const words = new Map<string, VocabItem>();
+    const phrases = new Map<string, VocabItem>();
     for (const item of allVocab) {
       const cleaned = item.word
         .replace(/\([^)]*\)/g, '')
         .split(/[/,;]/)[0]
         .trim()
         .toLowerCase();
-      if (!cleaned || cleaned.includes(' ')) continue;
+      if (!cleaned) continue;
+      if (cleaned.includes(' ')) {
+        if (!phrases.has(cleaned)) phrases.set(cleaned, item);
+        continue;
+      }
       if (cleaned.length < 4 || COMMON_STOPWORDS.has(cleaned)) continue;
-      if (!map.has(cleaned)) map.set(cleaned, item);
+      if (!words.has(cleaned)) words.set(cleaned, item);
     }
-    return map;
+    return { vocabIndex: words, phraseVocabIndex: phrases };
   }, [allVocab]);
 
   const findSheetMatch = useCallback(
     (token: string): VocabItem | undefined => {
-      for (const candidate of getCandidateLemmas(token)) {
+      const lower = cleanPhraseText(token).toLowerCase();
+      if (!lower) return undefined;
+      if (lower.includes(' ')) return phraseVocabIndex.get(lower);
+      for (const candidate of getCandidateLemmas(lower)) {
         if (candidate.length < 4 || COMMON_STOPWORDS.has(candidate)) continue;
         const found = vocabIndex.get(candidate);
         if (found) return found;
       }
       return undefined;
     },
-    [vocabIndex]
+    [vocabIndex, phraseVocabIndex]
   );
 
   // --- Shared Apps Script Webhook (Google Drive + Sheets) ---
@@ -364,6 +368,12 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
   const [fontSize, setFontSize] = useState<number>(17);
   const [pdfZoom, setPdfZoom] = useState<number>(1.2);
   const [highlightKnown, setHighlightKnown] = useState<boolean>(true);
+  const [phraseMode, setPhraseMode] = useState<boolean>(false);
+  const [phraseAnchor, setPhraseAnchor] = useState<{
+    paraKey: string;
+    wordIdx: number;
+    word: string;
+  } | null>(null);
   const [speechRate, setSpeechRate] = useState<number>(0.95);
   const [speakingKey, setSpeakingKey] = useState<string | null>(null);
   const [paraTranslations, setParaTranslations] = useState<Record<number, string>>({});
@@ -371,8 +381,8 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
   const [progressSyncStatus, setProgressSyncStatus] = useState<'idle' | 'syncing' | 'synced'>('idle');
   const [manualWordInput, setManualWordInput] = useState<string>('');
 
-  // --- Word Lookup & Saved Book Words ---
-  const [lookup, setLookup] = useState<LookupResult | null>(null);
+  // --- Word & Phrase Lookup & Saved Book Words ---
+  const [lookup, setLookup] = useState<ReaderLookupResult | null>(null);
   const [savedWords, setSavedWords] = useState<SavedBookWord[]>(() => loadSavedBookWords());
   const [savedDrawerOpen, setSavedDrawerOpen] = useState<boolean>(false);
   const [batchSyncing, setBatchSyncing] = useState<boolean>(false);
@@ -760,6 +770,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
     let cancelled = false;
     setPageLoading(true);
     setParaTranslations({});
+    setPhraseAnchor(null);
     stopSpeaking();
     setSpeakingKey(null);
 
@@ -887,82 +898,80 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
     }
   };
 
-  // --- Tap-Any-Word Lookup ---
-  const handleLookupWord = async (rawToken: string, contextSentence: string) => {
-    const cleaned = normalizeToken(rawToken);
+  // --- Tap-Any-Word OR Phrase Lookup ---
+  const handleLookupTerm = async (
+    rawTerm: string,
+    contextSentence: string,
+    rangeMeta?: {
+      paraKey: string;
+      wordStartIdx: number;
+      wordEndIdx: number;
+      paragraphWords: string[];
+    }
+  ) => {
+    const cleaned = cleanPhraseText(rawTerm);
     if (!cleaned || cleaned.length < 2) return;
 
+    const isPhrase = cleaned.includes(' ');
     const sheetMatch = findSheetMatch(cleaned);
     setLookup({
-      word: rawToken.replace(/^[^A-Za-z0-9'-]+|[^A-Za-z0-9'-]+$/g, ''),
+      raw: rawTerm,
       cleaned,
+      isPhrase,
       contextSentence,
+      paraKey: rangeMeta?.paraKey,
+      wordStartIdx: rangeMeta?.wordStartIdx,
+      wordEndIdx: rangeMeta?.wordEndIdx,
+      paragraphWords: rangeMeta?.paragraphWords,
       loading: true,
+      partOfSpeech: isPhrase ? 'phrase' : undefined,
       definitions: [],
       sheetMatch,
     });
 
-    try {
-      const [dictRes, transRes] = await Promise.allSettled([
-        fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleaned)}`),
-        fetch(
-          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(cleaned)}&langpair=en|vi`
-        ),
-      ]);
-
-      let phonetic: string | undefined;
-      let partOfSpeech: string | undefined;
-      const definitions: Array<{ def: string; example?: string }> = [];
-
-      if (dictRes.status === 'fulfilled' && dictRes.value.ok) {
-        const dictJson = await dictRes.value.json();
-        const entry = Array.isArray(dictJson) ? dictJson[0] : null;
-        if (entry) {
-          phonetic =
-            entry.phonetic ||
-            entry.phonetics?.find((p: { text?: string }) => p.text)?.text ||
-            undefined;
-          const firstMeaning = entry.meanings?.[0];
-          if (firstMeaning) {
-            partOfSpeech = firstMeaning.partOfSpeech;
-            for (const d of (firstMeaning.definitions || []).slice(0, 2)) {
-              if (d.definition) definitions.push({ def: d.definition, example: d.example });
-            }
+    const result = await lookupTermOnline(cleaned);
+    setLookup((prev) =>
+      prev && prev.cleaned === cleaned
+        ? {
+            ...prev,
+            loading: false,
+            phonetic:
+              result.phonetic || prev.sheetMatch?.phoneticUk || prev.sheetMatch?.phoneticUs,
+            partOfSpeech: result.partOfSpeech || prev.sheetMatch?.partOfSpeech,
+            definitions: result.definitions,
+            viMeaning: result.viMeaning || prev.sheetMatch?.meaning,
+            error: result.error,
           }
-        }
-      }
-
-      let viMeaning: string | undefined;
-      if (transRes.status === 'fulfilled' && transRes.value.ok) {
-        const transJson = await transRes.value.json();
-        const translated = transJson?.responseData?.translatedText;
-        if (typeof translated === 'string' && translated.trim()) {
-          viMeaning = translated.trim();
-        }
-      }
-
-      setLookup((prev) =>
-        prev && prev.cleaned === cleaned
-          ? {
-              ...prev,
-              loading: false,
-              phonetic: phonetic || prev.sheetMatch?.phoneticUk || prev.sheetMatch?.phoneticUs,
-              partOfSpeech: partOfSpeech || prev.sheetMatch?.partOfSpeech,
-              definitions,
-              viMeaning: viMeaning || prev.sheetMatch?.meaning,
-            }
-          : prev
-      );
-    } catch {
-      setLookup((prev) =>
-        prev && prev.cleaned === cleaned
-          ? { ...prev, loading: false, error: 'Không kết nối được từ điển trực tuyến.' }
-          : prev
-      );
-    }
+        : prev
+    );
   };
 
-  // --- Save Word 1-Click Straight to "Book Vocab" Tab on Google Sheets ---
+  const handleExpandLookup = (dir: 'left' | 'right') => {
+    if (
+      !lookup ||
+      !lookup.paragraphWords ||
+      typeof lookup.wordStartIdx !== 'number' ||
+      typeof lookup.wordEndIdx !== 'number' ||
+      !lookup.paraKey
+    ) {
+      return;
+    }
+    const nextStart = dir === 'left' ? Math.max(0, lookup.wordStartIdx - 1) : lookup.wordStartIdx;
+    const nextEnd =
+      dir === 'right'
+        ? Math.min(lookup.paragraphWords.length - 1, lookup.wordEndIdx + 1)
+        : lookup.wordEndIdx;
+    if (nextStart === lookup.wordStartIdx && nextEnd === lookup.wordEndIdx) return;
+    const phrase = lookup.paragraphWords.slice(nextStart, nextEnd + 1).join(' ');
+    handleLookupTerm(phrase, lookup.contextSentence, {
+      paraKey: lookup.paraKey,
+      wordStartIdx: nextStart,
+      wordEndIdx: nextEnd,
+      paragraphWords: lookup.paragraphWords,
+    });
+  };
+
+  // --- Save Word / Phrase 1-Click Straight to "Book Vocab" Tab on Google Sheets ---
   const pushBookWordsToSheet = async (entries: SavedBookWord[]) => {
     const res = await fetch('/api/save-vocab', {
       method: 'POST',
@@ -980,7 +989,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
           example: e.context || '',
           topic: e.bookTitle || 'Book',
           page: e.page ? `p.${e.page}` : '',
-          cambridgeUrl: `https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(e.word.toLowerCase())}`,
+          cambridgeUrl: getCambridgeUrl(e.word),
           savedDate: e.savedAt.slice(0, 10),
         })),
       }),
@@ -992,13 +1001,18 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
     return data;
   };
 
-  const handleSaveWord = async () => {
+  const handleSaveWord = async (customMeaning?: string) => {
     if (!lookup) return;
     const entry: SavedBookWord = {
       word: lookup.cleaned,
-      partOfSpeech: lookup.partOfSpeech,
+      partOfSpeech: lookup.partOfSpeech || (lookup.isPhrase ? 'phrase' : undefined),
       phonetic: lookup.phonetic,
-      meaning: lookup.viMeaning || lookup.sheetMatch?.meaning || lookup.definitions[0]?.def || '',
+      meaning:
+        (customMeaning && customMeaning.trim()) ||
+        lookup.viMeaning ||
+        lookup.sheetMatch?.meaning ||
+        lookup.definitions[0]?.def ||
+        '',
       context: lookup.contextSentence.slice(0, 220),
       bookTitle: activeBook?.title || 'Book',
       page: currentPage,
@@ -1090,41 +1104,110 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
     }
   };
 
-  // --- Interactive Paragraph Renderer ---
-  const renderInteractiveParagraph = (text: string) => {
+  // --- Interactive Paragraph Renderer (1-tap word, 2-tap phrase, or mouse drag-select) ---
+  const renderInteractiveParagraph = (text: string, paraKey: string) => {
     const tokens = text.split(/(\s+)/);
-    return tokens.map((tok, idx) => {
-      if (/^\s+$/.test(tok)) return <span key={idx}>{tok}</span>;
-      const cleaned = normalizeToken(tok);
-      if (cleaned.length < 2) return <span key={idx}>{tok}</span>;
-      const matched = highlightKnown ? findSheetMatch(cleaned) : undefined;
-      return (
-        <span
-          key={idx}
-          role="button"
-          tabIndex={0}
-          onClick={() => handleLookupWord(tok, text)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              handleLookupWord(tok, text);
-            }
-          }}
-          title={
-            matched
-              ? `Từ đã có trong Sheet "${matched.deck}": ${matched.meaning}`
-              : 'Chạm để tra từ & lưu vào Book Vocab'
+    const paragraphWords = tokens.filter((t) => !/^\s+$/.test(t) && t.length > 0);
+    let runningWordIdx = -1;
+
+    const handleWordClick = (tok: string, wordIdx: number) => {
+      if (getSelectedPhraseFromWindow()) return;
+
+      if (phraseMode) {
+        if (!phraseAnchor || phraseAnchor.paraKey !== paraKey) {
+          setPhraseAnchor({ paraKey, wordIdx, word: cleanPhraseText(tok) || tok });
+          return;
+        }
+        const start = Math.min(phraseAnchor.wordIdx, wordIdx);
+        const end = Math.max(phraseAnchor.wordIdx, wordIdx);
+        setPhraseAnchor(null);
+        const phrase = paragraphWords.slice(start, end + 1).join(' ');
+        handleLookupTerm(phrase, text, {
+          paraKey,
+          wordStartIdx: start,
+          wordEndIdx: end,
+          paragraphWords,
+        });
+        return;
+      }
+
+      handleLookupTerm(tok, text, {
+        paraKey,
+        wordStartIdx: wordIdx,
+        wordEndIdx: wordIdx,
+        paragraphWords,
+      });
+    };
+
+    return (
+      <span
+        onMouseUp={() => {
+          const selected = getSelectedPhraseFromWindow();
+          if (selected) {
+            setPhraseAnchor(null);
+            handleLookupTerm(selected, text);
           }
-          className={`cursor-pointer rounded px-0.5 transition ${
-            matched
-              ? 'bg-emerald-100/80 font-semibold text-emerald-900 underline decoration-emerald-400/80 decoration-dotted underline-offset-4 hover:bg-emerald-200 dark:bg-emerald-950/70 dark:text-emerald-200 dark:hover:bg-emerald-900'
-              : 'hover:bg-blue-100/80 hover:text-blue-800 dark:hover:bg-blue-950/70 dark:hover:text-blue-200'
-          }`}
-        >
-          {tok}
-        </span>
-      );
-    });
+        }}
+      >
+        {tokens.map((tok, idx) => {
+          if (/^\s+$/.test(tok) || tok.length === 0) return <span key={idx}>{tok}</span>;
+          runningWordIdx += 1;
+          const myWordIdx = runningWordIdx;
+          const cleaned = normalizeToken(tok);
+          const isAnchor =
+            phraseAnchor?.paraKey === paraKey && phraseAnchor.wordIdx === myWordIdx;
+          const isInActiveLookup =
+            lookup?.paraKey === paraKey &&
+            typeof lookup.wordStartIdx === 'number' &&
+            typeof lookup.wordEndIdx === 'number' &&
+            myWordIdx >= lookup.wordStartIdx &&
+            myWordIdx <= lookup.wordEndIdx;
+
+          if (cleaned.length < 1 && !phraseMode) return <span key={idx}>{tok}</span>;
+          const matched = highlightKnown ? findSheetMatch(cleaned) : undefined;
+
+          let cls =
+            'cursor-pointer rounded px-0.5 transition hover:bg-blue-100/80 hover:text-blue-800 dark:hover:bg-blue-950/70 dark:hover:text-blue-200';
+          if (isAnchor) {
+            cls =
+              'cursor-pointer rounded bg-violet-600 px-1 font-bold text-white ring-2 ring-violet-300 transition';
+          } else if (isInActiveLookup) {
+            cls =
+              'cursor-pointer rounded bg-violet-100 px-0.5 font-bold text-violet-900 underline decoration-violet-400 underline-offset-4 dark:bg-violet-900/70 dark:text-violet-100';
+          } else if (matched) {
+            cls =
+              'cursor-pointer rounded bg-emerald-100/80 px-0.5 font-semibold text-emerald-900 underline decoration-emerald-400/80 decoration-dotted underline-offset-4 hover:bg-emerald-200 dark:bg-emerald-950/70 dark:text-emerald-200 dark:hover:bg-emerald-900';
+          }
+
+          return (
+            <span
+              key={idx}
+              role="button"
+              tabIndex={0}
+              onClick={() => handleWordClick(tok, myWordIdx)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleWordClick(tok, myWordIdx);
+                }
+              }}
+              title={
+                phraseMode
+                  ? phraseAnchor?.paraKey === paraKey
+                    ? 'Chạm để kết thúc cụm từ tại đây'
+                    : 'Chạm để chọn từ đầu tiên của cụm'
+                  : matched
+                    ? `Từ đã có trong Sheet "${matched.deck}": ${matched.meaning}`
+                    : 'Chạm tra 1 từ (hoặc bôi đen nhiều từ để tra cả cụm)'
+              }
+              className={cls}
+            >
+              {tok}
+            </span>
+          );
+        })}
+      </span>
+    );
   };
 
   const pageMatchedCount = useMemo(() => {
@@ -1860,6 +1943,23 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
                   <>
                     <button
                       type="button"
+                      onClick={() => {
+                        setPhraseMode((m) => !m);
+                        setPhraseAnchor(null);
+                      }}
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-bold transition ${
+                        phraseMode
+                          ? 'bg-violet-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-700 hover:bg-violet-50 hover:text-violet-700 dark:bg-slate-800 dark:text-slate-200'
+                      }`}
+                      title="Bật để chạm từ đầu → chạm từ cuối gom cả cụm từ"
+                    >
+                      <TextSelect className="h-3.5 w-3.5" />
+                      <span>{phraseMode ? 'Đang chọn cụm (2 chạm)' : 'Chọn cụm từ'}</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => setHighlightKnown((h) => !h)}
                       className={`inline-flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-bold ${
                         highlightKnown
@@ -1948,6 +2048,26 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
               </div>
             </div>
 
+            {/* Phrase Mode Hint Banner */}
+            {readerMode === 'smart' && phraseMode && (
+              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-200 bg-violet-50/70 px-3 py-1.5 text-xs text-violet-900 dark:border-violet-900/60 dark:bg-violet-950/30 dark:text-violet-200">
+                <span>
+                  {phraseAnchor
+                    ? `Đang chọn từ “${phraseAnchor.word}” → chạm vào từ cuối cùng của cụm trong cùng đoạn!`
+                    : 'Chế độ Chọn cụm từ: chạm từ đầu tiên rồi chạm từ cuối cùng của cụm để dịch & lưu thẳng lên Book Vocab.'}
+                </span>
+                {phraseAnchor && (
+                  <button
+                    type="button"
+                    onClick={() => setPhraseAnchor(null)}
+                    className="rounded-lg bg-white px-2 py-0.5 text-[11px] font-bold text-violet-700 shadow-2xs dark:bg-slate-900 dark:text-violet-300"
+                  >
+                    Hủy chọn
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Bookmarks quick-jump strip */}
             {activeBook.bookmarks.length > 0 && (
               <div className="no-scrollbar mt-2.5 flex items-center gap-1.5 overflow-x-auto border-t border-slate-100 pt-2.5 dark:border-slate-800">
@@ -2008,7 +2128,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
                         style={{ fontSize: `${fontSize}px`, lineHeight: 1.72 }}
                         className="text-slate-800 dark:text-slate-100"
                       >
-                        {renderInteractiveParagraph(para)}
+                        {renderInteractiveParagraph(para, `book-${currentPage}-${idx}`)}
                       </p>
 
                       {paraTranslations[idx] && (
@@ -2059,7 +2179,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (manualWordInput.trim()) {
-                    handleLookupWord(manualWordInput.trim(), pageParagraphs[0] || activeBook.title);
+                    handleLookupTerm(manualWordInput.trim(), pageParagraphs[0] || activeBook.title);
                   }
                 }}
                 className="mx-auto flex max-w-2xl items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xs dark:border-slate-800 dark:bg-slate-900"
@@ -2069,7 +2189,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
                   type="text"
                   value={manualWordInput}
                   onChange={(e) => setManualWordInput(e.target.value)}
-                  placeholder="Gõ nhanh từ gặp trên trang PDF gốc để tra & lưu vào Book Vocab..."
+                  placeholder="Gõ nhanh 1 từ hoặc cả cụm từ gặp trên trang PDF gốc để tra & lưu vào Book Vocab..."
                   className="flex-1 bg-transparent text-xs text-slate-800 focus:outline-none dark:text-slate-100"
                 />
                 <button
@@ -2114,135 +2234,25 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
         </div>
       )}
 
-      {/* ==================== INTERACTIVE WORD LOOKUP DRAWER ==================== */}
+      {/* ==================== INTERACTIVE WORD & PHRASE LOOKUP DRAWER ==================== */}
       {lookup && (
-        <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-2xl p-3 sm:p-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl ring-1 ring-slate-900/10 dark:border-slate-700 dark:bg-slate-900">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h4 className="text-lg font-extrabold text-slate-900 dark:text-white">
-                    {lookup.cleaned}
-                  </h4>
-                  {lookup.phonetic && (
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                      {lookup.phonetic}
-                    </span>
-                  )}
-                  {lookup.partOfSpeech && (
-                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                      {lookup.partOfSpeech}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => speakText(lookup.cleaned, accent, 0.9)}
-                    className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300"
-                  >
-                    <Volume2 className="h-3.5 w-3.5" /> Nghe
-                  </button>
-                </div>
-
-                {lookup.sheetMatch && (
-                  <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Đã có trong Sheet “{lookup.sheetMatch.deck}”: {lookup.sheetMatch.meaning}
-                  </p>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setLookup(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {lookup.loading ? (
-              <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                Đang tra từ điển & dịch tiếng Việt...
-              </div>
-            ) : (
-              <div className="mt-2.5 space-y-2">
-                {lookup.viMeaning && (
-                  <p className="text-sm font-bold text-blue-700 dark:text-blue-300">
-                    Nghĩa tiếng Việt: {lookup.viMeaning}
-                  </p>
-                )}
-                {lookup.definitions.length > 0 && (
-                  <ul className="space-y-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                    {lookup.definitions.map((d, i) => (
-                      <li key={i}>
-                        • {d.def}
-                        {d.example && (
-                          <span className="block pl-3 italic text-slate-400">“{d.example}”</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {lookup.error && (
-                  <p className="text-xs text-rose-600 dark:text-rose-400">{lookup.error}</p>
-                )}
-
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2.5 dark:border-slate-800">
-                  <a
-                    href={`https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(lookup.cleaned)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:underline dark:text-indigo-400"
-                  >
-                    Mở Cambridge <ExternalLink className="h-3 w-3" />
-                  </a>
-
-                  <button
-                    type="button"
-                    disabled={activeSavedEntry?.syncStatus === 'syncing'}
-                    onClick={handleSaveWord}
-                    className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-white transition disabled:opacity-60 ${
-                      activeSavedEntry?.syncStatus === 'synced'
-                        ? 'bg-emerald-600 hover:bg-emerald-700'
-                        : activeSavedEntry?.syncStatus === 'error'
-                          ? 'bg-rose-600 hover:bg-rose-700'
-                          : 'bg-blue-600 hover:bg-blue-700'
-                    }`}
-                  >
-                    {activeSavedEntry?.syncStatus === 'syncing' ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang gửi lên Book Vocab...
-                      </>
-                    ) : activeSavedEntry?.syncStatus === 'synced' ? (
-                      <>
-                        <Check className="h-3.5 w-3.5" /> Đã lên tab Book Vocab ✓
-                      </>
-                    ) : activeSavedEntry?.syncStatus === 'error' ? (
-                      <>
-                        <RefreshCw className="h-3.5 w-3.5" /> Lỗi gửi — Thử lại
-                      </>
-                    ) : isConnected ? (
-                      <>
-                        <Cloud className="h-3.5 w-3.5" /> Lưu thẳng Book Vocab
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-3.5 w-3.5" /> Lưu vào Sổ từ sách
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {activeSavedEntry?.syncStatus === 'error' && activeSavedEntry.syncError && (
-                  <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
-                    {activeSavedEntry.syncError}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        <ReaderLookupDrawer
+          lookup={lookup}
+          accent={accent}
+          isSheetConnected={isConnected}
+          targetSheetLabel="Book Vocab"
+          savedSyncStatus={activeSavedEntry?.syncStatus}
+          savedSyncError={activeSavedEntry?.syncError}
+          isAlreadySavedLocally={Boolean(activeSavedEntry)}
+          accentTone="blue"
+          onClose={() => {
+            setLookup(null);
+            setPhraseAnchor(null);
+          }}
+          onExpandRange={handleExpandLookup}
+          onSave={(customMeaning) => handleSaveWord(customMeaning)}
+          onOpenSheetSetup={() => setSetupOpen(true)}
+        />
       )}
     </div>
   );

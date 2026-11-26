@@ -23,7 +23,6 @@ import {
   LayoutGrid,
   Loader2,
   Newspaper,
-  Plus,
   RefreshCw,
   RotateCcw,
   Search,
@@ -31,6 +30,7 @@ import {
   Settings2,
   Sparkles,
   Square,
+  TextSelect,
   Trash2,
   Volume2,
   X,
@@ -39,6 +39,14 @@ import {
 import type { Accent, NewsArticleItem, VocabItem } from '../types';
 import { speakText, stopSpeaking } from '../utils/speech';
 import { APPS_SCRIPT_WEBHOOK_CODE } from '../utils/appsScriptTemplate';
+import {
+  cleanPhraseText,
+  getCambridgeUrl,
+  getSelectedPhraseFromWindow,
+  lookupTermOnline,
+  type ReaderLookupResult,
+} from '../utils/readerLookup';
+import { ReaderLookupDrawer } from './ReaderLookupDrawer';
 
 interface NewsViewProps {
   articles: NewsArticleItem[];
@@ -58,19 +66,6 @@ interface LiveFeedItem {
   publishedAt: string;
   summary: string;
   imageUrl?: string;
-}
-
-interface LookupResult {
-  word: string;
-  cleaned: string;
-  contextSentence: string;
-  loading: boolean;
-  phonetic?: string;
-  partOfSpeech?: string;
-  definitions: Array<{ def: string; example?: string }>;
-  viMeaning?: string;
-  sheetMatch?: VocabItem;
-  error?: string;
 }
 
 interface SavedNewsWord {
@@ -188,41 +183,57 @@ function getLevelBadgeClass(level?: string): string {
 export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
   const [studioMode, setStudioMode] = useState<StudioMode>('live');
 
-  // --- Shared Vocabulary Lookup Index (matches user's Google Sheets vocab!) ---
-  const vocabIndex = useMemo(() => {
-    const map = new Map<string, VocabItem>();
+  // --- Shared Vocabulary Lookup Index (matches user's Google Sheets vocab & phrases!) ---
+  const { vocabIndex, phraseVocabIndex } = useMemo(() => {
+    const words = new Map<string, VocabItem>();
+    const phrases = new Map<string, VocabItem>();
     for (const item of allVocab) {
       const cleaned = item.word
         .replace(/\([^)]*\)/g, '')
         .split(/[\/,;]/)[0]
         .trim()
         .toLowerCase();
-      if (!cleaned || cleaned.includes(' ')) continue;
+      if (!cleaned) continue;
+      if (cleaned.includes(' ')) {
+        if (!phrases.has(cleaned)) phrases.set(cleaned, item);
+        continue;
+      }
       if (cleaned.length < 4 || COMMON_STOPWORDS.has(cleaned)) continue;
-      if (!map.has(cleaned)) {
-        map.set(cleaned, item);
+      if (!words.has(cleaned)) {
+        words.set(cleaned, item);
       }
     }
-    return map;
+    return { vocabIndex: words, phraseVocabIndex: phrases };
   }, [allVocab]);
 
   const findSheetMatch = useCallback(
     (token: string): VocabItem | undefined => {
-      for (const candidate of getCandidateLemmas(token)) {
+      const lower = cleanPhraseText(token).toLowerCase();
+      if (!lower) return undefined;
+      if (lower.includes(' ')) {
+        return phraseVocabIndex.get(lower);
+      }
+      for (const candidate of getCandidateLemmas(lower)) {
         if (candidate.length < 4 || COMMON_STOPWORDS.has(candidate)) continue;
         const found = vocabIndex.get(candidate);
         if (found) return found;
       }
       return undefined;
     },
-    [vocabIndex]
+    [vocabIndex, phraseVocabIndex]
   );
 
   // --- Shared Reading Tools State ---
   const [highlightKnown, setHighlightKnown] = useState(true);
+  const [phraseMode, setPhraseMode] = useState(false);
+  const [phraseAnchor, setPhraseAnchor] = useState<{
+    paraKey: string;
+    wordIdx: number;
+    word: string;
+  } | null>(null);
   const [speechRate, setSpeechRate] = useState<number>(0.95);
   const [speakingKey, setSpeakingKey] = useState<string | null>(null);
-  const [lookup, setLookup] = useState<LookupResult | null>(null);
+  const [lookup, setLookup] = useState<ReaderLookupResult | null>(null);
   const [savedWords, setSavedWords] = useState<SavedNewsWord[]>(() => loadSavedNewsWords());
   const [savedDrawerOpen, setSavedDrawerOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -370,81 +381,77 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
     });
   };
 
-  // Instant word lookup (Google Sheets vocab + Free Dictionary API + MyMemory EN->VI)
-  const handleLookupWord = async (rawToken: string, contextSentence: string) => {
-    const cleaned = normalizeToken(rawToken);
+  // Instant word OR phrase lookup (Google Sheets vocab + Dictionary API + MyMemory EN->VI)
+  const handleLookupTerm = async (
+    rawTerm: string,
+    contextSentence: string,
+    rangeMeta?: {
+      paraKey: string;
+      wordStartIdx: number;
+      wordEndIdx: number;
+      paragraphWords: string[];
+    }
+  ) => {
+    const cleaned = cleanPhraseText(rawTerm);
     if (!cleaned || cleaned.length < 2) return;
 
+    const isPhrase = cleaned.includes(' ');
     const sheetMatch = findSheetMatch(cleaned);
     setLookup({
-      word: rawToken.replace(/^[^A-Za-z0-9'-]+|[^A-Za-z0-9'-]+$/g, ''),
+      raw: rawTerm,
       cleaned,
+      isPhrase,
       contextSentence,
+      paraKey: rangeMeta?.paraKey,
+      wordStartIdx: rangeMeta?.wordStartIdx,
+      wordEndIdx: rangeMeta?.wordEndIdx,
+      paragraphWords: rangeMeta?.paragraphWords,
       loading: true,
+      partOfSpeech: isPhrase ? 'phrase' : undefined,
       definitions: [],
       sheetMatch,
     });
 
-    try {
-      const [dictRes, transRes] = await Promise.allSettled([
-        fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleaned)}`),
-        fetch(
-          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(cleaned)}&langpair=en|vi`
-        ),
-      ]);
-
-      let phonetic: string | undefined;
-      let partOfSpeech: string | undefined;
-      const definitions: Array<{ def: string; example?: string }> = [];
-
-      if (dictRes.status === 'fulfilled' && dictRes.value.ok) {
-        const dictJson = await dictRes.value.json();
-        const entry = Array.isArray(dictJson) ? dictJson[0] : null;
-        if (entry) {
-          phonetic =
-            entry.phonetic ||
-            entry.phonetics?.find((p: { text?: string }) => p.text)?.text ||
-            undefined;
-          const firstMeaning = entry.meanings?.[0];
-          if (firstMeaning) {
-            partOfSpeech = firstMeaning.partOfSpeech;
-            for (const d of (firstMeaning.definitions || []).slice(0, 2)) {
-              if (d.definition) {
-                definitions.push({ def: d.definition, example: d.example });
-              }
-            }
+    const result = await lookupTermOnline(cleaned);
+    setLookup((prev) =>
+      prev && prev.cleaned === cleaned
+        ? {
+            ...prev,
+            loading: false,
+            phonetic:
+              result.phonetic || prev.sheetMatch?.phoneticUk || prev.sheetMatch?.phoneticUs,
+            partOfSpeech: result.partOfSpeech || prev.sheetMatch?.partOfSpeech,
+            definitions: result.definitions,
+            viMeaning: result.viMeaning || prev.sheetMatch?.meaning,
+            error: result.error,
           }
-        }
-      }
+        : prev
+    );
+  };
 
-      let viMeaning: string | undefined;
-      if (transRes.status === 'fulfilled' && transRes.value.ok) {
-        const transJson = await transRes.value.json();
-        const translated = transJson?.responseData?.translatedText;
-        if (typeof translated === 'string' && translated.trim()) {
-          viMeaning = translated.trim();
-        }
-      }
-
-      setLookup((prev) =>
-        prev && prev.cleaned === cleaned
-          ? {
-              ...prev,
-              loading: false,
-              phonetic: phonetic || prev.sheetMatch?.phoneticUk || prev.sheetMatch?.phoneticUs,
-              partOfSpeech: partOfSpeech || prev.sheetMatch?.partOfSpeech,
-              definitions,
-              viMeaning: viMeaning || prev.sheetMatch?.meaning,
-            }
-          : prev
-      );
-    } catch {
-      setLookup((prev) =>
-        prev && prev.cleaned === cleaned
-          ? { ...prev, loading: false, error: 'Không kết nối được từ điển trực tuyến.' }
-          : prev
-      );
+  const handleExpandLookup = (dir: 'left' | 'right') => {
+    if (
+      !lookup ||
+      !lookup.paragraphWords ||
+      typeof lookup.wordStartIdx !== 'number' ||
+      typeof lookup.wordEndIdx !== 'number' ||
+      !lookup.paraKey
+    ) {
+      return;
     }
+    const nextStart = dir === 'left' ? Math.max(0, lookup.wordStartIdx - 1) : lookup.wordStartIdx;
+    const nextEnd =
+      dir === 'right'
+        ? Math.min(lookup.paragraphWords.length - 1, lookup.wordEndIdx + 1)
+        : lookup.wordEndIdx;
+    if (nextStart === lookup.wordStartIdx && nextEnd === lookup.wordEndIdx) return;
+    const phrase = lookup.paragraphWords.slice(nextStart, nextEnd + 1).join(' ');
+    handleLookupTerm(phrase, lookup.contextSentence, {
+      paraKey: lookup.paraKey,
+      wordStartIdx: nextStart,
+      wordEndIdx: nextEnd,
+      paragraphWords: lookup.paragraphWords,
+    });
   };
 
   // On-demand paragraph EN -> VI translation via MyMemory
@@ -535,7 +542,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
           meaning: e.meaning || '',
           example: e.context || '',
           topic: e.topic || 'News',
-          cambridgeUrl: `https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(e.word.toLowerCase())}`,
+          cambridgeUrl: getCambridgeUrl(e.word),
           sourceArticle: e.articleTitle || '',
           savedDate: e.savedAt.slice(0, 10),
         })),
@@ -548,13 +555,22 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
     return data;
   };
 
-  const handleSaveWord = async (titleContext: string, topicContext: string) => {
+  const handleSaveWord = async (
+    titleContext: string,
+    topicContext: string,
+    customMeaning?: string
+  ) => {
     if (!lookup) return;
     const entry: SavedNewsWord = {
       word: lookup.cleaned,
-      partOfSpeech: lookup.partOfSpeech,
+      partOfSpeech: lookup.partOfSpeech || (lookup.isPhrase ? 'phrase' : undefined),
       phonetic: lookup.phonetic,
-      meaning: lookup.viMeaning || lookup.sheetMatch?.meaning || lookup.definitions[0]?.def || '',
+      meaning:
+        (customMeaning && customMeaning.trim()) ||
+        lookup.viMeaning ||
+        lookup.sheetMatch?.meaning ||
+        lookup.definitions[0]?.def ||
+        '',
       context: lookup.contextSentence.slice(0, 220),
       topic: topicContext || 'News',
       articleTitle: titleContext,
@@ -689,41 +705,111 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
     handleCopyText('saved-tsv', lines.join('\n'));
   };
 
-  // Render an English paragraph with clickable/tappable tokens & personal vocab highlight
-  const renderInteractiveParagraph = (text: string) => {
+  // Render an English paragraph with single-word tap, 2-tap phrase selection, and native drag-highlight
+  const renderInteractiveParagraph = (text: string, paraKey: string) => {
     const tokens = text.split(/(\s+)/);
-    return tokens.map((tok, idx) => {
-      if (/^\s+$/.test(tok)) return <span key={idx}>{tok}</span>;
-      const cleaned = normalizeToken(tok);
-      if (cleaned.length < 2) return <span key={idx}>{tok}</span>;
-      const matched = highlightKnown ? findSheetMatch(cleaned) : undefined;
-      return (
-        <span
-          key={idx}
-          role="button"
-          tabIndex={0}
-          onClick={() => handleLookupWord(tok, text)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              handleLookupWord(tok, text);
-            }
-          }}
-          title={
-            matched
-              ? `Từ đã có trong Sheet "${matched.deck}": ${matched.meaning}`
-              : 'Chạm để tra từ & dịch nhanh'
+    const paragraphWords = tokens.filter((t) => !/^\s+$/.test(t) && t.length > 0);
+    let runningWordIdx = -1;
+
+    const handleWordClick = (tok: string, wordIdx: number) => {
+      // If the user just dragged to highlight a phrase, let onMouseUp handle it
+      if (getSelectedPhraseFromWindow()) return;
+
+      if (phraseMode) {
+        if (!phraseAnchor || phraseAnchor.paraKey !== paraKey) {
+          setPhraseAnchor({ paraKey, wordIdx, word: cleanPhraseText(tok) || tok });
+          return;
+        }
+        const start = Math.min(phraseAnchor.wordIdx, wordIdx);
+        const end = Math.max(phraseAnchor.wordIdx, wordIdx);
+        setPhraseAnchor(null);
+        const phrase = paragraphWords.slice(start, end + 1).join(' ');
+        handleLookupTerm(phrase, text, {
+          paraKey,
+          wordStartIdx: start,
+          wordEndIdx: end,
+          paragraphWords,
+        });
+        return;
+      }
+
+      handleLookupTerm(tok, text, {
+        paraKey,
+        wordStartIdx: wordIdx,
+        wordEndIdx: wordIdx,
+        paragraphWords,
+      });
+    };
+
+    return (
+      <span
+        onMouseUp={() => {
+          const selected = getSelectedPhraseFromWindow();
+          if (selected) {
+            setPhraseAnchor(null);
+            handleLookupTerm(selected, text);
           }
-          className={`cursor-pointer rounded px-0.5 transition ${
-            matched
-              ? 'bg-emerald-100/80 font-semibold text-emerald-900 underline decoration-emerald-400/80 decoration-dotted underline-offset-4 hover:bg-emerald-200 dark:bg-emerald-950/70 dark:text-emerald-200 dark:hover:bg-emerald-900'
-              : 'hover:bg-indigo-100/80 hover:text-indigo-800 dark:hover:bg-indigo-950/70 dark:hover:text-indigo-200'
-          }`}
-        >
-          {tok}
-        </span>
-      );
-    });
+        }}
+      >
+        {tokens.map((tok, idx) => {
+          if (/^\s+$/.test(tok) || tok.length === 0) return <span key={idx}>{tok}</span>;
+          runningWordIdx += 1;
+          const myWordIdx = runningWordIdx;
+          const cleaned = normalizeToken(tok);
+          const isAnchor =
+            phraseAnchor?.paraKey === paraKey && phraseAnchor.wordIdx === myWordIdx;
+          const isInActiveLookup =
+            lookup?.paraKey === paraKey &&
+            typeof lookup.wordStartIdx === 'number' &&
+            typeof lookup.wordEndIdx === 'number' &&
+            myWordIdx >= lookup.wordStartIdx &&
+            myWordIdx <= lookup.wordEndIdx;
+
+          if (cleaned.length < 1 && !phraseMode) return <span key={idx}>{tok}</span>;
+          const matched = highlightKnown ? findSheetMatch(cleaned) : undefined;
+
+          let cls =
+            'cursor-pointer rounded px-0.5 transition hover:bg-indigo-100/80 hover:text-indigo-800 dark:hover:bg-indigo-950/70 dark:hover:text-indigo-200';
+          if (isAnchor) {
+            cls =
+              'cursor-pointer rounded bg-violet-600 px-1 font-bold text-white ring-2 ring-violet-300 transition';
+          } else if (isInActiveLookup) {
+            cls =
+              'cursor-pointer rounded bg-violet-100 px-0.5 font-bold text-violet-900 underline decoration-violet-400 underline-offset-4 dark:bg-violet-900/70 dark:text-violet-100';
+          } else if (matched) {
+            cls =
+              'cursor-pointer rounded bg-emerald-100/80 px-0.5 font-semibold text-emerald-900 underline decoration-emerald-400/80 decoration-dotted underline-offset-4 hover:bg-emerald-200 dark:bg-emerald-950/70 dark:text-emerald-200 dark:hover:bg-emerald-900';
+          }
+
+          return (
+            <span
+              key={idx}
+              role="button"
+              tabIndex={0}
+              onClick={() => handleWordClick(tok, myWordIdx)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleWordClick(tok, myWordIdx);
+                }
+              }}
+              title={
+                phraseMode
+                  ? phraseAnchor?.paraKey === paraKey
+                    ? 'Chạm để kết thúc cụm từ tại đây'
+                    : 'Chạm để chọn từ đầu tiên của cụm'
+                  : matched
+                    ? `Từ đã có trong Sheet "${matched.deck}": ${matched.meaning}`
+                    : 'Chạm tra 1 từ (hoặc bôi đen kéo chuột để tra cả cụm)'
+              }
+              className={cls}
+            >
+              {tok}
+            </span>
+          );
+        })}
+      </span>
+    );
   };
 
   // Count how many distinct personal Google Sheets words appear in current text
@@ -1622,6 +1708,22 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => {
+                    setPhraseMode((m) => !m);
+                    setPhraseAnchor(null);
+                  }}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                    phraseMode
+                      ? 'bg-violet-600 text-white shadow-xs'
+                      : 'bg-white text-slate-700 hover:bg-violet-50 hover:text-violet-700 dark:bg-slate-900 dark:text-slate-200'
+                  }`}
+                  title="Bật để chạm từ đầu → chạm từ cuối gom cả cụm từ"
+                >
+                  <TextSelect className="h-3.5 w-3.5" />
+                  <span>{phraseMode ? 'Đang chọn cụm (2 chạm)' : 'Chọn cụm từ'}</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setHighlightKnown((h) => !h)}
                   className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
                     highlightKnown
@@ -1631,11 +1733,15 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                 >
                   <Highlighter className="h-3.5 w-3.5" />
                   <span>
-                    Từ đã học trong Sheet ({liveMatchedCount})
+                    Từ đã học ({liveMatchedCount})
                   </span>
                 </button>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Chạm bất kỳ từ nào để tra nghĩa & lưu sổ từ
+                  {phraseMode
+                    ? phraseAnchor
+                      ? `Bắt đầu từ “${phraseAnchor.word}” → chạm từ cuối cụm!`
+                      : 'Chạm từ đầu rồi chạm từ cuối để lưu cả cụm'
+                    : 'Chạm 1 từ hoặc bôi đen nhiều từ để tra & lưu'}
                 </span>
               </div>
 
@@ -1686,7 +1792,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
               ) : liveArticleError || liveParagraphs.length === 0 ? (
                 <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
                   <p className="text-sm leading-relaxed text-slate-800 dark:text-slate-200">
-                    {renderInteractiveParagraph(selectedLive.summary || selectedLive.title)}
+                    {renderInteractiveParagraph(selectedLive.summary || selectedLive.title, 'live-summary')}
                   </p>
                   <p className="text-xs text-amber-800 dark:text-amber-300">
                     {liveArticleError ||
@@ -1704,7 +1810,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                     }`}
                   >
                     <p className="text-[15px] leading-relaxed text-slate-800 sm:text-base sm:leading-7 dark:text-slate-100">
-                      {renderInteractiveParagraph(para)}
+                      {renderInteractiveParagraph(para, `live-${idx}`)}
                     </p>
 
                     {paraTranslations[idx] && (
@@ -1898,6 +2004,21 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                   </button>
                   <button
                     type="button"
+                    onClick={() => {
+                      setPhraseMode((m) => !m);
+                      setPhraseAnchor(null);
+                    }}
+                    className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold ${
+                      phraseMode
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                    }`}
+                  >
+                    <TextSelect className="h-3.5 w-3.5" />
+                    <span>{phraseMode ? 'Chọn cụm: Bật' : 'Chọn cụm từ'}</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setHighlightKnown((h) => !h)}
                     className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold ${
                       highlightKnown
@@ -1959,7 +2080,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                   </div>
 
                   <p className="mt-2.5 text-[15px] leading-relaxed text-slate-900 sm:text-base sm:leading-7 dark:text-slate-100">
-                    {renderInteractiveParagraph(p.en)}
+                    {renderInteractiveParagraph(p.en, `deep-${idx}`)}
                   </p>
 
                   {showVi && p.vi && (
@@ -2169,153 +2290,27 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
         </div>
       )}
 
-      {/* ==================== INTERACTIVE WORD LOOKUP DRAWER ==================== */}
+      {/* ==================== INTERACTIVE WORD & PHRASE LOOKUP DRAWER ==================== */}
       {lookup && (
-        <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-2xl p-3 sm:p-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl ring-1 ring-slate-900/10 dark:border-slate-700 dark:bg-slate-900">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h4 className="text-lg font-extrabold text-slate-900 dark:text-white">
-                    {lookup.cleaned}
-                  </h4>
-                  {lookup.phonetic && (
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                      {lookup.phonetic}
-                    </span>
-                  )}
-                  {lookup.partOfSpeech && (
-                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                      {lookup.partOfSpeech}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => speakText(lookup.cleaned, accent, 0.9)}
-                    className="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-2 py-1 text-xs font-bold text-teal-700 hover:bg-teal-100 dark:bg-teal-950 dark:text-teal-300"
-                  >
-                    <Volume2 className="h-3.5 w-3.5" /> Nghe
-                  </button>
-                </div>
-
-                {lookup.sheetMatch && (
-                  <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Đã có trong Sheet “{lookup.sheetMatch.deck}”: {lookup.sheetMatch.meaning}
-                  </p>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setLookup(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {lookup.loading ? (
-              <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
-                Đang tra từ điển & dịch tiếng Việt...
-              </div>
-            ) : (
-              <div className="mt-2.5 space-y-2">
-                {lookup.viMeaning && (
-                  <p className="text-sm font-bold text-teal-700 dark:text-teal-300">
-                    Nghĩa tiếng Việt: {lookup.viMeaning}
-                  </p>
-                )}
-                {lookup.definitions.length > 0 && (
-                  <ul className="space-y-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                    {lookup.definitions.map((d, i) => (
-                      <li key={i}>
-                        • {d.def}
-                        {d.example && (
-                          <span className="block pl-3 italic text-slate-400">“{d.example}”</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {lookup.error && (
-                  <p className="text-xs text-rose-600 dark:text-rose-400">{lookup.error}</p>
-                )}
-
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2.5 dark:border-slate-800">
-                  <a
-                    href={`https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(lookup.cleaned)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:underline dark:text-indigo-400"
-                  >
-                    Mở Cambridge <ExternalLink className="h-3 w-3" />
-                  </a>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    {!isSheetConnected && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setLookup(null);
-                          setSheetSetupOpen(true);
-                        }}
-                        className="rounded-xl border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-bold text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
-                      >
-                        Bật lưu thẳng Sheet
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      disabled={activeSavedEntry?.syncStatus === 'syncing'}
-                      onClick={() => handleSaveWord(currentArticleTitle, currentArticleTopic)}
-                      className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-white transition disabled:opacity-60 ${
-                        activeSavedEntry?.syncStatus === 'synced'
-                          ? 'bg-emerald-600 hover:bg-emerald-700'
-                          : activeSavedEntry?.syncStatus === 'error'
-                            ? 'bg-rose-600 hover:bg-rose-700'
-                            : 'bg-teal-600 hover:bg-teal-700'
-                      }`}
-                    >
-                      {activeSavedEntry?.syncStatus === 'syncing' ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang gửi lên Google Sheets...
-                        </>
-                      ) : activeSavedEntry?.syncStatus === 'synced' ? (
-                        <>
-                          <Check className="h-3.5 w-3.5" /> Đã lên tab News Vocab ✓
-                        </>
-                      ) : activeSavedEntry?.syncStatus === 'error' ? (
-                        <>
-                          <RefreshCw className="h-3.5 w-3.5" /> Lỗi gửi — Thử lại
-                        </>
-                      ) : activeSavedEntry ? (
-                        <>
-                          <Check className="h-3.5 w-3.5" /> Đã lưu cục bộ
-                        </>
-                      ) : isSheetConnected ? (
-                        <>
-                          <Cloud className="h-3.5 w-3.5" /> Lưu thẳng Google Sheets
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="h-3.5 w-3.5" /> Lưu vào Sổ từ báo chí
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-                {activeSavedEntry?.syncStatus === 'error' && activeSavedEntry.syncError && (
-                  <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
-                    {activeSavedEntry.syncError}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        <ReaderLookupDrawer
+          lookup={lookup}
+          accent={accent}
+          isSheetConnected={isSheetConnected}
+          targetSheetLabel="News Vocab"
+          savedSyncStatus={activeSavedEntry?.syncStatus}
+          savedSyncError={activeSavedEntry?.syncError}
+          isAlreadySavedLocally={Boolean(activeSavedEntry)}
+          accentTone="teal"
+          onClose={() => {
+            setLookup(null);
+            setPhraseAnchor(null);
+          }}
+          onExpandRange={handleExpandLookup}
+          onSave={(customMeaning) =>
+            handleSaveWord(currentArticleTitle, currentArticleTopic, customMeaning)
+          }
+          onOpenSheetSetup={() => setSheetSetupOpen(true)}
+        />
       )}
     </div>
   );
