@@ -248,7 +248,7 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
     return () => stopSpeaking();
   }, []);
 
-  const handleSpeakSingle = (key: string, rawText: string, rate = 0.92) => {
+  const handleSpeakSingle = (key: string, rawText: string, rate = 1.0) => {
     if (speakingKey === key) {
       stopReadAloud();
       return;
@@ -272,7 +272,7 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
   const handleSpeakQueue = (
     queueKey: string,
     queueItems: Array<{ key: string; text: string }>,
-    rate = 0.9
+    rate = 1.0
   ) => {
     if (speakingKey === queueKey) {
       stopReadAloud();
@@ -1104,7 +1104,7 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
                                 key: `t1-sec-${secIdx}-sent-${sIdx}`,
                                 text: s.text,
                               })),
-                              0.92
+                              1.0
                             )
                           }
                           className="inline-flex items-center gap-1 rounded-lg bg-white/80 px-2.5 py-1 text-xs font-semibold text-indigo-600 shadow-2xs hover:bg-white dark:bg-slate-900 dark:text-indigo-300"
@@ -1153,7 +1153,7 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
                               )}
                             </div>
                             <button
-                              onClick={() => handleSpeakSingle(sentKey, sent.text, 0.92)}
+                              onClick={() => handleSpeakSingle(sentKey, sent.text, 1.0)}
                               title={speakingKey === sentKey ? 'Dừng phát' : 'Phát âm câu này'}
                               className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950"
                             >
@@ -1204,7 +1204,7 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
                             key: `t1-essay-p-${idx}`,
                             text: para,
                           })),
-                          0.9
+                          1.0
                         )
                       }
                       className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300"

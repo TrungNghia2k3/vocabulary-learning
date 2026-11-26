@@ -176,7 +176,7 @@ function speakSingleInternal(
 export function speakText(
   text: string,
   accent: Accent = 'en-GB',
-  rate = 0.95,
+  rate = 1.0,
   options?: SpeakOptions
 ): void {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -195,7 +195,7 @@ export function speakText(
 export function speakParagraphQueue(
   items: SpeechQueueItem[],
   accent: Accent = 'en-GB',
-  rate = 0.95,
+  rate = 1.0,
   callbacks?: SpeechQueueCallbacks
 ): void {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {

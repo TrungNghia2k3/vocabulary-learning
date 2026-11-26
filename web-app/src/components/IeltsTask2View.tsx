@@ -301,7 +301,7 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
     return () => stopSpeaking();
   }, []);
 
-  const handleSpeakSingle = (key: string, rawText: string, rate = 0.92) => {
+  const handleSpeakSingle = (key: string, rawText: string, rate = 1.0) => {
     if (speakingKey === key) {
       stopReadAloud();
       return;
@@ -325,7 +325,7 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
   const handleSpeakQueue = (
     queueKey: string,
     queueItems: Array<{ key: string; text: string }>,
-    rate = 0.92
+    rate = 1.0
   ) => {
     if (speakingKey === queueKey) {
       stopReadAloud();
@@ -1128,7 +1128,7 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                                 </span>
                                 <div className="flex items-center gap-1">
                                   <button
-                                    onClick={() => handleSpeakSingle(copyId, sec.text, 0.92)}
+                                    onClick={() => handleSpeakSingle(copyId, sec.text, 1.0)}
                                     title={speakingKey === copyId ? 'Dừng phát' : 'Nghe mẫu đoạn này'}
                                     className="rounded-lg p-1.5 text-slate-400 hover:bg-white/80 hover:text-indigo-600 dark:hover:bg-slate-800"
                                   >
@@ -1435,7 +1435,7 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                           key: `sample-sec-${idx}`,
                           text: sec.text,
                         })),
-                        0.92
+                        1.0
                       )
                     }
                     className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50 dark:border-slate-700 dark:text-indigo-300"
@@ -1502,7 +1502,7 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                         </div>
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => handleSpeakSingle(copyId, sec.text, 0.92)}
+                            onClick={() => handleSpeakSingle(copyId, sec.text, 1.0)}
                             className="rounded-lg p-1.5 text-slate-400 hover:bg-white/80 hover:text-indigo-600 dark:hover:bg-slate-800"
                             title={speakingKey === copyId ? 'Dừng phát' : 'Nghe đoạn này'}
                           >

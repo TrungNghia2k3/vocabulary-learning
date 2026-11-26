@@ -176,7 +176,7 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
   const [masteredIds, setMasteredIds] = useState<Set<string>>(() => loadMasteredSet());
 
   // Shadowing playback controls
-  const [rate, setRate] = useState<number>(0.9);
+  const [rate, setRate] = useState<number>(1.0);
   const [pauseSeconds, setPauseSeconds] = useState<number>(3);
   const [scriptMode, setScriptMode] = useState<ScriptVisibility>('full');
   const [activeSentenceIdx, setActiveSentenceIdx] = useState<number>(0);

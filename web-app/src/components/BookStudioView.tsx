@@ -374,7 +374,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
     wordIdx: number;
     word: string;
   } | null>(null);
-  const [speechRate, setSpeechRate] = useState<number>(0.95);
+  const [speechRate, setSpeechRate] = useState<number>(1.0);
   const [speakingKey, setSpeakingKey] = useState<string | null>(null);
   const [speakingWord, setSpeakingWord] = useState<{ paraKey: string; wordIdx: number } | null>(null);
   const [paraTranslations, setParaTranslations] = useState<Record<number, string>>({});
@@ -2054,7 +2054,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
                       </button>
                     </div>
 
-                    {[0.8, 0.95, 1.1].map((spd) => (
+                    {[0.8, 1.0, 1.2].map((spd) => (
                       <button
                         key={spd}
                         type="button"
@@ -2065,7 +2065,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
                             : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
                         }`}
                       >
-                        {spd}x
+                        {spd.toFixed(1)}x
                       </button>
                     ))}
 
