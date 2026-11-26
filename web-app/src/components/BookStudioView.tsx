@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import type { Accent, VocabItem } from '../types';
 import { speakParagraphQueue, speakText, stopSpeaking } from '../utils/speech';
+import { getUrlIntParam, getUrlParam, syncUrlParams } from '../utils/urlParams';
 import { APPS_SCRIPT_WEBHOOK_CODE } from '../utils/appsScriptTemplate';
 import {
   cleanPhraseText,
@@ -362,7 +363,16 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [pageInput, setPageInput] = useState<string>('1');
-  const [readerMode, setReaderMode] = useState<ReaderMode>('smart');
+  const [readerMode, setReaderMode] = useState<ReaderMode>(() =>
+    getUrlParam('view') === 'pdf' ? 'pdf' : 'smart'
+  );
+  const pendingUrlBookRef = useRef<{ bookId: string; page: number | null } | null>(
+    (() => {
+      const bookId = getUrlParam('book');
+      if (!bookId) return null;
+      return { bookId, page: getUrlIntParam('page') };
+    })()
+  );
   const [pageParagraphs, setPageParagraphs] = useState<string[]>([]);
   const [pageLoading, setPageLoading] = useState<boolean>(false);
   const [fontSize, setFontSize] = useState<number>(17);
@@ -586,7 +596,11 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
   };
 
   // --- Load PDF bytes into PDF.js and open reader ---
-  const openPdfWithBuffer = async (book: CachedBookMeta, arrayBuffer: ArrayBuffer) => {
+  const openPdfWithBuffer = async (
+    book: CachedBookMeta,
+    arrayBuffer: ArrayBuffer,
+    overridePage?: number | null
+  ) => {
     stopSpeaking();
     setSpeakingKey(null);
     setSpeakingWord(null);
@@ -599,7 +613,8 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
     const loadingTask = pdfjsLib.getDocument({ data: copy });
     const doc = await loadingTask.promise;
 
-    const safePage = Math.min(Math.max(1, book.currentPage || 1), doc.numPages);
+    const requestedPage = overridePage && overridePage > 0 ? overridePage : book.currentPage || 1;
+    const safePage = Math.min(Math.max(1, requestedPage), doc.numPages);
     const updatedBook: CachedBookMeta = {
       ...book,
       totalPages: doc.numPages,
@@ -623,12 +638,12 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
   };
 
   // --- Open Book (from IndexedDB cache or chunked download from Google Drive!) ---
-  const handleOpenBook = async (book: CachedBookMeta) => {
+  const handleOpenBook = async (book: CachedBookMeta, overridePage?: number | null) => {
     setDownloadError(null);
     const cachedBuf = await getBookPdfBytes(book.id);
     if (cachedBuf && cachedBuf.byteLength > 0) {
       try {
-        await openPdfWithBuffer(book, cachedBuf);
+        await openPdfWithBuffer(book, cachedBuf, overridePage);
         return;
       } catch (err) {
         setDownloadError(err instanceof Error ? err.message : 'Không mở được file PDF đã lưu.');
@@ -699,7 +714,11 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
         fullBuffer
       );
       setDownloadPercent(100);
-      await openPdfWithBuffer({ ...book, sizeBytes: fullBuffer.byteLength, hasLocalPdf: true }, fullBuffer);
+      await openPdfWithBuffer(
+        { ...book, sizeBytes: fullBuffer.byteLength, hasLocalPdf: true },
+        fullBuffer,
+        overridePage
+      );
     } catch (err) {
       setDownloadError(
         err instanceof Error ? err.message : 'Không tải được file PDF từ Google Drive.'
@@ -709,6 +728,38 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
       setDownloadPercent(0);
     }
   };
+
+  // Auto-open book & page from URL on F5 / shared link once books load
+  useEffect(() => {
+    const pending = pendingUrlBookRef.current;
+    if (!pending || activeBook || downloadingBookId || !books.length) return;
+    const found = books.find(
+      (b) =>
+        b.id === pending.bookId ||
+        (b.driveFileId && b.driveFileId === pending.bookId) ||
+        b.title.toLowerCase() === pending.bookId.toLowerCase()
+    );
+    if (found) {
+      pendingUrlBookRef.current = null;
+      handleOpenBook(found, pending.page);
+    } else if (!driveLoading) {
+      pendingUrlBookRef.current = null;
+    }
+  }, [books, driveLoading, activeBook, downloadingBookId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep active book, current page & reader view synced into URL
+  useEffect(() => {
+    if (pendingUrlBookRef.current) return;
+    if (activeBook) {
+      syncUrlParams({
+        book: activeBook.id,
+        page: currentPage,
+        view: readerMode !== 'smart' ? readerMode : null,
+      });
+    } else {
+      syncUrlParams({});
+    }
+  }, [activeBook, currentPage, readerMode]);
 
   // --- Sync reading progress & bookmarks to IndexedDB + Google Sheets Bookshelf ---
   const persistBookProgress = useCallback(

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   BookMarked,
@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import type { Accent, NewsArticleItem, VocabItem } from '../types';
 import { speakParagraphQueue, speakText, stopSpeaking } from '../utils/speech';
+import { getUrlParam, syncUrlParams } from '../utils/urlParams';
 import { APPS_SCRIPT_WEBHOOK_CODE } from '../utils/appsScriptTemplate';
 import {
   cleanPhraseText,
@@ -181,7 +182,9 @@ function getLevelBadgeClass(level?: string): string {
 }
 
 export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
-  const [studioMode, setStudioMode] = useState<StudioMode>('live');
+  const [studioMode, setStudioMode] = useState<StudioMode>(() =>
+    getUrlParam('mode') === 'deep' ? 'deep' : 'live'
+  );
 
   // --- Shared Vocabulary Lookup Index (matches user's Google Sheets vocab & phrases!) ---
   const { vocabIndex, phraseVocabIndex } = useMemo(() => {
@@ -281,11 +284,20 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
   }, []);
 
   // --- Live News Mode State ---
-  const [liveCategory, setLiveCategory] = useState<string>('all');
+  const [liveCategory, setLiveCategory] = useState<string>(() => {
+    const modeParam = getUrlParam('mode');
+    const catParam = getUrlParam('cat');
+    if (modeParam !== 'deep' && catParam && LIVE_CATEGORIES.some((c) => c.id === catParam)) {
+      return catParam;
+    }
+    return 'all';
+  });
   const [liveArticles, setLiveArticles] = useState<LiveFeedItem[]>([]);
   const [liveLoading, setLiveLoading] = useState<boolean>(false);
   const [liveError, setLiveError] = useState<string | null>(null);
-  const [liveSearch, setLiveSearch] = useState<string>('');
+  const [liveSearch, setLiveSearch] = useState<string>(() =>
+    getUrlParam('mode') !== 'deep' ? getUrlParam('q') || '' : ''
+  );
   const [selectedLive, setSelectedLive] = useState<LiveFeedItem | null>(null);
   const [liveParagraphs, setLiveParagraphs] = useState<string[]>([]);
   const [liveWordCount, setLiveWordCount] = useState<number>(0);
@@ -293,13 +305,40 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
   const [liveArticleError, setLiveArticleError] = useState<string | null>(null);
   const [paraTranslations, setParaTranslations] = useState<Record<number, string>>({});
   const [translatingIdx, setTranslatingIdx] = useState<number | null>(null);
+  const pendingLiveArticleRef = useRef<{
+    url: string;
+    title: string;
+    source: string;
+    category: string;
+  } | null>(
+    (() => {
+      if (getUrlParam('mode') === 'deep') return null;
+      const articleUrl = getUrlParam('article');
+      if (!articleUrl) return null;
+      return {
+        url: articleUrl,
+        title: getUrlParam('title') || 'Đang tải bài báo...',
+        source: getUrlParam('src') || 'News',
+        category: getUrlParam('cat') || 'all',
+      };
+    })()
+  );
 
   // --- Deep Analyzed Sheet Mode State ---
-  const [deepCategory, setDeepCategory] = useState<string>('ALL');
+  const [deepCategory, setDeepCategory] = useState<string>(() =>
+    getUrlParam('mode') === 'deep' ? getUrlParam('cat') || 'ALL' : 'ALL'
+  );
   const [deepPickerOpen, setDeepPickerOpen] = useState<boolean>(false);
   const [deepPickerSearch, setDeepPickerSearch] = useState<string>('');
-  const [selectedDeepId, setSelectedDeepId] = useState<string>(articles[0]?.id || '');
-  const [deepTab, setDeepTab] = useState<DeepSubTab>('bilingual');
+  const [selectedDeepId, setSelectedDeepId] = useState<string>(() => {
+    const idParam = getUrlParam('id');
+    if (idParam && articles.some((a) => a.id === idParam)) return idParam;
+    return articles[0]?.id || '';
+  });
+  const [deepTab, setDeepTab] = useState<DeepSubTab>(() => {
+    const t = getUrlParam('tab');
+    return t === 'vocab' || t === 'quiz' ? t : 'bilingual';
+  });
   const [showVi, setShowVi] = useState<boolean>(true);
   const [showNotes, setShowNotes] = useState<boolean>(true);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
@@ -361,6 +400,13 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
       const paras = Array.isArray(data.paragraphs) ? data.paragraphs : [];
       setLiveParagraphs(paras);
       setLiveWordCount(typeof data.wordCount === 'number' ? data.wordCount : 0);
+      if (data.title && (!item.title || item.title === 'Đang tải bài báo...')) {
+        setSelectedLive((prev) =>
+          prev && prev.url === item.url
+            ? { ...prev, title: String(data.title), imageUrl: prev.imageUrl || data.imageUrl }
+            : prev
+        );
+      }
     } catch (err) {
       setLiveArticleError(
         err instanceof Error ? err.message : 'Không trích xuất được toàn văn bài báo này.'
@@ -369,6 +415,56 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
       setLiveArticleLoading(false);
     }
   };
+
+  // Auto-open live article from URL on F5 / shared link
+  useEffect(() => {
+    const pending = pendingLiveArticleRef.current;
+    if (!pending) return;
+    pendingLiveArticleRef.current = null;
+    openLiveArticle({
+      id: pending.url,
+      title: pending.title,
+      url: pending.url,
+      source: pending.source,
+      category: pending.category,
+      publishedAt: '',
+      summary: '',
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Enrich restored live article with image/summary once the live feed arrives
+  useEffect(() => {
+    if (!selectedLive || !liveArticles.length) return;
+    const match = liveArticles.find((a) => a.url === selectedLive.url);
+    if (match && (!selectedLive.imageUrl || !selectedLive.publishedAt)) {
+      setSelectedLive((prev) => (prev && prev.url === match.url ? { ...match, ...prev, imageUrl: prev.imageUrl || match.imageUrl, publishedAt: prev.publishedAt || match.publishedAt, summary: prev.summary || match.summary } : prev));
+    }
+  }, [liveArticles, selectedLive]);
+
+  // Sync News sub-mode, category, search & open article into URL query params
+  useEffect(() => {
+    if (pendingLiveArticleRef.current) return;
+    if (studioMode === 'deep') {
+      syncUrlParams({
+        mode: 'deep',
+        cat: deepCategory !== 'ALL' ? deepCategory : null,
+        id: selectedDeepId || null,
+        tab: deepTab !== 'bilingual' ? deepTab : null,
+      });
+    } else if (selectedLive) {
+      syncUrlParams({
+        cat: liveCategory !== 'all' ? liveCategory : null,
+        article: selectedLive.url,
+        title: selectedLive.title && selectedLive.title !== 'Đang tải bài báo...' ? selectedLive.title : null,
+        src: selectedLive.source || null,
+      });
+    } else {
+      syncUrlParams({
+        cat: liveCategory !== 'all' ? liveCategory : null,
+        q: liveSearch.trim() || null,
+      });
+    }
+  }, [studioMode, liveCategory, liveSearch, selectedLive, deepCategory, selectedDeepId, deepTab]);
 
   const clearSpeech = () => {
     stopSpeaking();

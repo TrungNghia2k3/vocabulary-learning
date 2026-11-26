@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   BookOpen,
@@ -16,6 +16,7 @@ import type {
   PrepositionItem,
 } from '../types';
 import { speakText } from '../utils/speech';
+import { getUrlParam, syncUrlParams } from '../utils/urlParams';
 
 interface SpecialPracticeViewProps {
   kind: 'prepositions' | 'phrasal-verbs' | 'idioms' | 'collocations';
@@ -34,13 +35,29 @@ export function SpecialPracticeView({
   collocations,
   accent,
 }: SpecialPracticeViewProps) {
-  const [tab, setTab] = useState<'learn' | 'quiz'>('learn');
-  const [search, setSearch] = useState('');
-  const [selectedColTopic, setSelectedColTopic] = useState<string>('ALL');
-  const [selectedColSubtopic, setSelectedColSubtopic] = useState<string>('ALL');
+  const [tab, setTab] = useState<'learn' | 'quiz'>(() =>
+    getUrlParam('tab') === 'quiz' ? 'quiz' : 'learn'
+  );
+  const [search, setSearch] = useState(() => getUrlParam('q') || '');
+  const [selectedColTopic, setSelectedColTopic] = useState<string>(
+    () => (kind === 'collocations' ? getUrlParam('topic') || 'ALL' : 'ALL')
+  );
+  const [selectedColSubtopic, setSelectedColSubtopic] = useState<string>(
+    () => (kind === 'collocations' ? getUrlParam('subtopic') || 'ALL' : 'ALL')
+  );
   const [quizIdx, setQuizIdx] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
   const [score, setScore] = useState(0);
+
+  useEffect(() => {
+    syncUrlParams({
+      tab: tab !== 'learn' ? tab : null,
+      topic: kind === 'collocations' && selectedColTopic !== 'ALL' ? selectedColTopic : null,
+      subtopic:
+        kind === 'collocations' && selectedColSubtopic !== 'ALL' ? selectedColSubtopic : null,
+      q: search.trim() || null,
+    });
+  }, [kind, tab, selectedColTopic, selectedColSubtopic, search]);
 
   const colTopics = useMemo(() => {
     const counts = new Map<string, number>();

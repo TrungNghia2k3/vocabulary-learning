@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Camera,
   CheckCircle2,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { Accent, VocabItem } from '../types';
 import { speakText } from '../utils/speech';
+import { getUrlIntParam, getUrlParam, syncUrlParams } from '../utils/urlParams';
 
 interface ImageQuizViewProps {
   /** Vocab items in current deck/topic filter */
@@ -134,9 +135,25 @@ export function ImageQuizView({
     return Array.from(counts.entries()).map(([name, count]) => ({ name, count }));
   }, [baseImagePool]);
 
-  const [playStyle, setPlayStyle] = useState<PlayStyle>('typing');
-  const [topicFilter, setTopicFilter] = useState<string>('ALL');
-  const [count, setCount] = useState<number>(10);
+  const [playStyle, setPlayStyle] = useState<PlayStyle>(() =>
+    getUrlParam('style') === 'multiple-choice' ? 'multiple-choice' : 'typing'
+  );
+  const [topicFilter, setTopicFilter] = useState<string>(() => getUrlParam('cat') || 'ALL');
+  const [count, setCount] = useState<number>(() => {
+    const c = getUrlIntParam('count');
+    return c && c >= 5 && c <= 100 ? c : 10;
+  });
+
+  useEffect(() => {
+    syncUrlParams(
+      {
+        style: playStyle !== 'typing' ? playStyle : null,
+        cat: topicFilter !== 'ALL' ? topicFilter : null,
+        count: count !== 10 ? count : null,
+      },
+      { preserveKeys: ['deck', 'topic'] }
+    );
+  }, [playStyle, topicFilter, count]);
   const [hideTopicBadge, setHideTopicBadge] = useState<boolean>(false);
   const [autoPronounce, setAutoPronounce] = useState<boolean>(true);
 

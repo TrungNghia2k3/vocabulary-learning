@@ -50,6 +50,7 @@ import {
   saveLearnedSet,
   touchStudyStreak,
 } from './utils/storage';
+import { getUrlParam, setUrlParams } from './utils/urlParams';
 
 const NAV_TABS: Array<{ id: AppMode; label: string; icon: typeof Home }> = [
   { id: 'dashboard', label: 'Tổng quan', icon: Home },
@@ -75,6 +76,16 @@ const NAV_TABS: Array<{ id: AppMode; label: string; icon: typeof Home }> = [
 
 const VALID_MODES = new Set<AppMode>(NAV_TABS.map((t) => t.id));
 const TAB_LABEL_BY_ID = new Map<AppMode, string>(NAV_TABS.map((t) => [t.id, t.label]));
+const DECK_AWARE_MODES = new Set<AppMode>([
+  'dashboard',
+  'browse',
+  'flashcard',
+  'image-quiz',
+  'quiz',
+  'syn-ant-quiz',
+  'spelling',
+  'today',
+]);
 const SESSION_DECK_KEY = 'vocab_studio_selected_deck';
 const SESSION_TOPIC_KEY = 'vocab_studio_selected_topic';
 
@@ -99,6 +110,8 @@ export default function App() {
   const library = useMemo(() => buildLibrary(), []);
   const [mode, setMode] = useState<AppMode>(() => getModeFromLocation());
   const [selectedDeck, setSelectedDeck] = useState<string>(() => {
+    const fromUrl = getUrlParam('deck');
+    if (fromUrl) return fromUrl;
     try {
       return sessionStorage.getItem(SESSION_DECK_KEY) || 'ALL';
     } catch {
@@ -106,6 +119,8 @@ export default function App() {
     }
   });
   const [selectedTopic, setSelectedTopic] = useState<string>(() => {
+    const fromUrl = getUrlParam('topic');
+    if (fromUrl) return fromUrl;
     try {
       return sessionStorage.getItem(SESSION_TOPIC_KEY) || 'ALL';
     } catch {
@@ -119,36 +134,62 @@ export default function App() {
   const [streak, setStreak] = useState<number>(() => getStudyStreak());
 
   // Navigate between tabs while syncing browser URL so F5 / Back / Forward / New Tab all work
-  const handleNavigate = useCallback((nextMode: AppMode) => {
-    setMode(nextMode);
-    if (typeof window !== 'undefined') {
-      const targetPath = getPathForMode(nextMode);
-      const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
-      if (currentPath !== targetPath || window.location.hash) {
-        window.history.pushState({ mode: nextMode }, '', targetPath);
+  const handleNavigate = useCallback(
+    (nextMode: AppMode) => {
+      setMode(nextMode);
+      if (typeof window !== 'undefined') {
+        const targetPath = getPathForMode(nextMode);
+        const params = new URLSearchParams();
+        if (DECK_AWARE_MODES.has(nextMode)) {
+          if (selectedDeck && selectedDeck !== 'ALL') params.set('deck', selectedDeck);
+          if (selectedTopic && selectedTopic !== 'ALL') params.set('topic', selectedTopic);
+        }
+        const qs = params.toString();
+        const targetUrl = `${targetPath}${qs ? `?${qs}` : ''}`;
+        const currentUrl = `${window.location.pathname.replace(/\/+$/, '') || '/'}${window.location.search}`;
+        if (currentUrl !== targetUrl || window.location.hash) {
+          window.history.pushState({ mode: nextMode }, '', targetUrl);
+        }
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
       }
-      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
-    }
-  }, []);
+    },
+    [selectedDeck, selectedTopic]
+  );
 
-  // Sync URL on browser Back / Forward and normalize initial unknown/hash URLs
+  // Preserve initial query params on mount (only normalize unknown/hash pathnames)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const expectedPath = getPathForMode(mode);
     const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
     if (currentPath !== expectedPath || window.location.hash) {
-      window.history.replaceState({ mode }, '', expectedPath);
+      window.history.replaceState({ mode }, '', `${expectedPath}${window.location.search}`);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onPopState = () => {
-      setMode(getModeFromLocation());
+      const nextMode = getModeFromLocation();
+      setMode(nextMode);
+      if (DECK_AWARE_MODES.has(nextMode)) {
+        const urlDeck = getUrlParam('deck');
+        const urlTopic = getUrlParam('topic');
+        if (urlDeck !== null) setSelectedDeck(urlDeck);
+        if (urlTopic !== null) setSelectedTopic(urlTopic);
+      }
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  // Sync deck & topic into URL query params when on deck-aware study tabs
+  useEffect(() => {
+    if (!DECK_AWARE_MODES.has(mode)) return;
+    setUrlParams({
+      deck: selectedDeck !== 'ALL' ? selectedDeck : null,
+      topic: selectedTopic !== 'ALL' ? selectedTopic : null,
+    });
+  }, [mode, selectedDeck, selectedTopic]);
 
   // Keep page title descriptive for each tab
   useEffect(() => {

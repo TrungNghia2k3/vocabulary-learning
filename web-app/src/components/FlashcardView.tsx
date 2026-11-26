@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { Accent, VocabItem } from '../types';
 import { speakText } from '../utils/speech';
+import { getUrlIntParam, getUrlParam, syncUrlParams } from '../utils/urlParams';
 
 interface FlashcardViewProps {
   items: VocabItem[];
@@ -24,10 +25,23 @@ export function FlashcardView({
   onToggleLearned,
   accent,
 }: FlashcardViewProps) {
-  const [filter, setFilter] = useState<'all' | 'unlearned' | 'learned'>('all');
+  const [filter, setFilter] = useState<'all' | 'unlearned' | 'learned'>(() => {
+    const f = getUrlParam('filter');
+    return f === 'unlearned' || f === 'learned' ? f : 'all';
+  });
   const [seed, setSeed] = useState(0);
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() => Math.max(0, (getUrlIntParam('card') || 1) - 1));
   const [flipped, setFlipped] = useState(false);
+
+  useEffect(() => {
+    syncUrlParams(
+      {
+        filter: filter !== 'all' ? filter : null,
+        card: index > 0 ? index + 1 : null,
+      },
+      { preserveKeys: ['deck', 'topic'] }
+    );
+  }, [filter, index]);
 
   const deck = useMemo(() => {
     const base = items.filter((item) => {

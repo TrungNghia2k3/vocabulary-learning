@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import type { Accent, VocabItem } from '../types';
 import { speakText } from '../utils/speech';
+import { getUrlParam, syncUrlParams } from '../utils/urlParams';
 import { loadSharedWebhookConfig } from '../utils/bookStorage';
 import {
   cleanPhraseText,
@@ -511,6 +512,7 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
   // --- Shared Google Sheets Webhook state ---
   const sharedCfg = useMemo(() => loadSharedWebhookConfig(), []);
   const [serverConfigured, setServerConfigured] = useState(false);
+  const [webhookChecked, setWebhookChecked] = useState(false);
   const isSheetConnected = serverConfigured || Boolean(sharedCfg.url.trim());
 
   useEffect(() => {
@@ -519,17 +521,23 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
       .then((d) => {
         if (d?.serverConfigured) setServerConfigured(true);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setWebhookChecked(true));
   }, []);
 
   // --- Feed State ---
-  const [channelKey, setChannelKey] = useState<string>('all');
+  const [channelKey, setChannelKey] = useState<string>(() => {
+    const ch = getUrlParam('channel');
+    if (ch && CHANNEL_CHIPS.some((c) => c.key === ch)) return ch;
+    return 'all';
+  });
   const [feedVideos, setFeedVideos] = useState<YoutubeFeedItem[]>([]);
   const [savedSheetVideos, setSavedSheetVideos] = useState<SavedSheetVideoItem[]>([]);
   const [feedLoading, setFeedLoading] = useState<boolean>(false);
   const [feedError, setFeedError] = useState<string | null>(null);
-  const [feedSearch, setFeedSearch] = useState<string>('');
+  const [feedSearch, setFeedSearch] = useState<string>(() => getUrlParam('q') || '');
   const [customUrlInput, setCustomUrlInput] = useState<string>('');
+  const pendingUrlVideoRef = useRef<string | null>(getUrlParam('v'));
 
   // --- Active Video Player + Transcript State ---
   const [activeVideo, setActiveVideo] = useState<{
@@ -806,6 +814,31 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
       setTranscriptLoading(false);
     }
   };
+
+  // Auto-open YouTube video from URL (?v=...) on F5 once webhook status is ready
+  useEffect(() => {
+    if (!webhookChecked) return;
+    const pendingVideoId = pendingUrlVideoRef.current;
+    if (!pendingVideoId) return;
+    pendingUrlVideoRef.current = null;
+    openVideo(pendingVideoId);
+  }, [webhookChecked]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep active video / channel filter / feed search synced in URL
+  useEffect(() => {
+    if (pendingUrlVideoRef.current) return;
+    if (activeVideo) {
+      syncUrlParams({
+        v: activeVideo.videoId,
+        channel: channelKey !== 'all' ? channelKey : null,
+      });
+    } else {
+      syncUrlParams({
+        channel: channelKey !== 'all' ? channelKey : null,
+        q: feedSearch.trim() || null,
+      });
+    }
+  }, [activeVideo, channelKey, feedSearch]);
 
   // Mount & sync YouTube IFrame Player API
   useEffect(() => {

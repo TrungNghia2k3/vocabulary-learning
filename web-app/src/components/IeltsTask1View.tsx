@@ -31,6 +31,7 @@ import type {
   IeltsTask1Section,
 } from '../types';
 import { speakParagraphQueue, speakText, stopSpeaking } from '../utils/speech';
+import { getUrlIntParam, getUrlParam, syncUrlParams } from '../utils/urlParams';
 import {
   EssayTypingPractice,
   splitIntoPracticeSentences,
@@ -205,20 +206,38 @@ function renderHighlightedTemplate(text: string, activeWordIdx?: number | null) 
 }
 
 export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps) {
-  const [topSection, setTopSection] = useState<TopSection>('tasks');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'chart' | 'map' | 'process'>('all');
+  const [topSection, setTopSection] = useState<TopSection>(() =>
+    getUrlParam('section') === 'examples' ? 'examples' : 'tasks'
+  );
+  const [typeFilter, setTypeFilter] = useState<'all' | 'chart' | 'map' | 'process'>(() => {
+    const t = getUrlParam('type');
+    return t === 'chart' || t === 'map' || t === 'process' ? t : 'all';
+  });
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState('');
-  const [onlyMultiEssay, setOnlyMultiEssay] = useState(false);
+  const [onlyMultiEssay, setOnlyMultiEssay] = useState(() => getUrlParam('multi') === '1');
 
-  const [examplePartFilter, setExamplePartFilter] = useState<string>('ALL');
-  const [exampleSearch, setExampleSearch] = useState('');
-  const [exampleTypingMode, setExampleTypingMode] = useState(false);
+  const [examplePartFilter, setExamplePartFilter] = useState<string>(
+    () => getUrlParam('part') || 'ALL'
+  );
+  const [exampleSearch, setExampleSearch] = useState(() => getUrlParam('q') || '');
+  const [exampleTypingMode, setExampleTypingMode] = useState(
+    () => getUrlParam('typing') === '1'
+  );
   const [copiedExId, setCopiedExId] = useState<string | null>(null);
 
-  const [selectedId, setSelectedId] = useState<string>(items[0]?.id || '');
-  const [essayIdx, setEssayIdx] = useState<number>(0);
-  const [studyTab, setStudyTab] = useState<StudyTab>('breakdown');
+  const [selectedId, setSelectedId] = useState<string>(() => {
+    const fromUrl = getUrlParam('id');
+    if (fromUrl && items.some((it) => it.id === fromUrl)) return fromUrl;
+    return items[0]?.id || '';
+  });
+  const [essayIdx, setEssayIdx] = useState<number>(() =>
+    Math.max(0, getUrlIntParam('essay') || 0)
+  );
+  const [studyTab, setStudyTab] = useState<StudyTab>(() => {
+    const t = getUrlParam('tab');
+    return t === 'essay' || t === 'typing' || t === 'practice' ? t : 'breakdown';
+  });
   const [zoomOpen, setZoomOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -243,6 +262,35 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
   useEffect(() => {
     stopReadAloud();
   }, [selectedId, essayIdx, studyTab, topSection]);
+
+  useEffect(() => {
+    if (topSection === 'examples') {
+      syncUrlParams({
+        section: 'examples',
+        part: examplePartFilter !== 'ALL' ? examplePartFilter : null,
+        q: exampleSearch.trim() || null,
+        typing: exampleTypingMode ? '1' : null,
+      });
+    } else {
+      syncUrlParams({
+        type: typeFilter !== 'all' ? typeFilter : null,
+        multi: onlyMultiEssay ? '1' : null,
+        id: selectedId || null,
+        essay: essayIdx > 0 ? essayIdx : null,
+        tab: studyTab !== 'breakdown' ? studyTab : null,
+      });
+    }
+  }, [
+    topSection,
+    typeFilter,
+    onlyMultiEssay,
+    selectedId,
+    essayIdx,
+    studyTab,
+    examplePartFilter,
+    exampleSearch,
+    exampleTypingMode,
+  ]);
 
   useEffect(() => {
     return () => stopSpeaking();

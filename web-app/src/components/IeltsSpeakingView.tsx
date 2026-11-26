@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import type { Accent, IeltsSpeakingItem, SpeakingPart } from '../types';
 import { speakText, stopSpeaking } from '../utils/speech';
+import { getUrlParam, syncUrlParams } from '../utils/urlParams';
 
 interface IeltsSpeakingViewProps {
   items: IeltsSpeakingItem[];
@@ -170,15 +171,35 @@ function formatTimer(sec: number): string {
 }
 
 export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
-  const [filter, setFilter] = useState<FilterMode>('ALL');
-  const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<string>(items[0]?.id || '');
+  const [filter, setFilter] = useState<FilterMode>(() => {
+    const f = getUrlParam('filter');
+    if (
+      f === 'Part 1' ||
+      f === 'Part 2' ||
+      f === 'Part 3' ||
+      f === 'Chưa gắn Part' ||
+      f === 'mastered' ||
+      f === 'unmastered'
+    ) {
+      return f;
+    }
+    return 'ALL';
+  });
+  const [search, setSearch] = useState(() => getUrlParam('q') || '');
+  const [selectedId, setSelectedId] = useState<string>(() => {
+    const fromUrl = getUrlParam('id');
+    if (fromUrl && items.some((it) => it.id === fromUrl)) return fromUrl;
+    return items[0]?.id || '';
+  });
   const [masteredIds, setMasteredIds] = useState<Set<string>>(() => loadMasteredSet());
 
   // Shadowing playback controls
   const [rate, setRate] = useState<number>(1.0);
   const [pauseSeconds, setPauseSeconds] = useState<number>(3);
-  const [scriptMode, setScriptMode] = useState<ScriptVisibility>('full');
+  const [scriptMode, setScriptMode] = useState<ScriptVisibility>(() => {
+    const s = getUrlParam('script');
+    return s === 'keywords' || s === 'hidden' ? s : 'full';
+  });
   const [activeSentenceIdx, setActiveSentenceIdx] = useState<number>(0);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('idle');
   const [isSpeakingNow, setIsSpeakingNow] = useState<boolean>(false);
@@ -253,6 +274,15 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
       null
     );
   }, [visibleItems, items, selectedId]);
+
+  useEffect(() => {
+    syncUrlParams({
+      filter: filter !== 'ALL' ? filter : null,
+      id: activeItem?.id || null,
+      script: scriptMode !== 'full' ? scriptMode : null,
+      q: search.trim() || null,
+    });
+  }, [filter, activeItem?.id, scriptMode, search]);
 
   const stopAllPlayback = useCallback(() => {
     sessionTokenRef.current += 1;

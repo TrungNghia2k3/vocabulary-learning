@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import type { Accent, IeltsTask2Format, IeltsTask2Prompt, IeltsTask2Section } from '../types';
 import { speakParagraphQueue, speakText, stopSpeaking } from '../utils/speech';
+import { getUrlIntParam, getUrlParam, syncUrlParams } from '../utils/urlParams';
 import {
   EssayTypingPractice,
   splitIntoPracticeSentences,
@@ -254,21 +255,48 @@ function findSectionTextForPart(format: IeltsTask2Format | null, partKey: string
 }
 
 export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps) {
-  const [topMode, setTopMode] = useState<TopMode>('prompts');
-  const [promptTypeFilter, setPromptTypeFilter] = useState<string>('ALL');
-  const [promptThemeFilter, setPromptThemeFilter] = useState<string>('ALL');
+  const [topMode, setTopMode] = useState<TopMode>(() =>
+    getUrlParam('mode') === 'formats' ? 'formats' : 'prompts'
+  );
+  const [promptTypeFilter, setPromptTypeFilter] = useState<string>(() =>
+    getUrlParam('mode') !== 'formats' ? getUrlParam('type') || 'ALL' : 'ALL'
+  );
+  const [promptThemeFilter, setPromptThemeFilter] = useState<string>(
+    () => getUrlParam('theme') || 'ALL'
+  );
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState('');
-  const [formatTypeFilter, setFormatTypeFilter] = useState<string>('ALL');
-  const [formatSearch, setFormatSearch] = useState('');
+  const [formatTypeFilter, setFormatTypeFilter] = useState<string>(() =>
+    getUrlParam('mode') === 'formats' ? getUrlParam('type') || 'ALL' : 'ALL'
+  );
+  const [formatSearch, setFormatSearch] = useState(() =>
+    getUrlParam('mode') === 'formats' ? getUrlParam('q') || '' : ''
+  );
   const [typingFormatIdInLibrary, setTypingFormatIdInLibrary] = useState<string | null>(null);
-  const [promptTypingSource, setPromptTypingSource] = useState<'sample' | 'format'>('sample');
+  const [promptTypingSource, setPromptTypingSource] = useState<'sample' | 'format'>(() =>
+    getUrlParam('source') === 'format' ? 'format' : 'sample'
+  );
 
-  const [selectedId, setSelectedId] = useState<string>(prompts[0]?.id || '');
-  const [sampleEssayIdx, setSampleEssayIdx] = useState<number>(0);
-  const [tab, setTab] = useState<Task2Tab>('expressions');
-  const [exprPartFilter, setExprPartFilter] = useState<string>('ALL');
-  const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState<string>(() => {
+    const fromUrl = getUrlParam('id');
+    if (fromUrl && prompts.some((p) => p.id === fromUrl)) return fromUrl;
+    return prompts[0]?.id || '';
+  });
+  const [sampleEssayIdx, setSampleEssayIdx] = useState<number>(() =>
+    Math.max(0, getUrlIntParam('essay') || 0)
+  );
+  const [tab, setTab] = useState<Task2Tab>(() => {
+    const t = getUrlParam('tab');
+    return t === 'sample' || t === 'typing' || t === 'writer' || t === 'drill'
+      ? t
+      : 'expressions';
+  });
+  const [exprPartFilter, setExprPartFilter] = useState<string>(
+    () => getUrlParam('part') || 'ALL'
+  );
+  const [search, setSearch] = useState(() =>
+    getUrlParam('mode') !== 'formats' ? getUrlParam('q') || '' : ''
+  );
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Writer state
@@ -296,6 +324,39 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
   useEffect(() => {
     stopReadAloud();
   }, [selectedId, sampleEssayIdx, tab, topMode]);
+
+  useEffect(() => {
+    if (topMode === 'formats') {
+      syncUrlParams({
+        mode: 'formats',
+        type: formatTypeFilter !== 'ALL' ? formatTypeFilter : null,
+        q: formatSearch.trim() || null,
+      });
+    } else {
+      syncUrlParams({
+        theme: promptThemeFilter !== 'ALL' ? promptThemeFilter : null,
+        type: promptTypeFilter !== 'ALL' ? promptTypeFilter : null,
+        id: selectedId || null,
+        essay: sampleEssayIdx > 0 ? sampleEssayIdx : null,
+        tab: tab !== 'expressions' ? tab : null,
+        part: tab === 'expressions' && exprPartFilter !== 'ALL' ? exprPartFilter : null,
+        source: tab === 'typing' && promptTypingSource !== 'sample' ? promptTypingSource : null,
+        q: search.trim() || null,
+      });
+    }
+  }, [
+    topMode,
+    formatTypeFilter,
+    formatSearch,
+    promptThemeFilter,
+    promptTypeFilter,
+    selectedId,
+    sampleEssayIdx,
+    tab,
+    exprPartFilter,
+    promptTypingSource,
+    search,
+  ]);
 
   useEffect(() => {
     return () => stopSpeaking();

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
   Circle,
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { Accent, DeckInfo, VocabItem } from '../types';
 import { speakText } from '../utils/speech';
+import { getUrlIntParam, getUrlParam, syncUrlParams } from '../utils/urlParams';
 
 interface BrowseViewProps {
   items: VocabItem[];
@@ -30,11 +31,31 @@ export function BrowseView({
   onToggleLearned,
   accent,
 }: BrowseViewProps) {
-  const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'learned' | 'unlearned' | 'with-image'>('all');
-  const [page, setPage] = useState(1);
-  const [activeItem, setActiveItem] = useState<VocabItem | null>(null);
+  const [query, setQuery] = useState(() => getUrlParam('q') || '');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'learned' | 'unlearned' | 'with-image'>(() => {
+    const f = getUrlParam('filter');
+    return f === 'learned' || f === 'unlearned' || f === 'with-image' ? f : 'all';
+  });
+  const [page, setPage] = useState(() => Math.max(1, getUrlIntParam('page') || 1));
+  const [activeItem, setActiveItem] = useState<VocabItem | null>(() => {
+    const wordParam = getUrlParam('word');
+    if (!wordParam) return null;
+    const lower = wordParam.toLowerCase();
+    return items.find((it) => it.id === wordParam || it.word.toLowerCase() === lower) || null;
+  });
   const pageSize = 24;
+
+  useEffect(() => {
+    syncUrlParams(
+      {
+        q: query.trim() || null,
+        filter: statusFilter !== 'all' ? statusFilter : null,
+        page: page > 1 ? page : null,
+        word: activeItem ? activeItem.word : null,
+      },
+      { preserveKeys: ['deck', 'topic'] }
+    );
+  }, [query, statusFilter, page, activeItem]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

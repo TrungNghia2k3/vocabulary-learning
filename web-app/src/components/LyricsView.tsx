@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import type { Accent, SongLyricItem } from '../types';
 import { speakText } from '../utils/speech';
+import { getUrlParam, syncUrlParams } from '../utils/urlParams';
 import { EssayTypingPractice, type EssayPracticeSentence } from './EssayTypingPractice';
 
 interface LyricsViewProps {
@@ -53,14 +54,29 @@ function getRegisterBadge(register?: string): string {
 }
 
 export function LyricsView({ songs, accent }: LyricsViewProps) {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
-  const [albumFilter, setAlbumFilter] = useState<string>('ALL');
-  const [artistFilter, setArtistFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    const s = getUrlParam('status');
+    return s === 'Done' || s === 'Pending' ? s : 'ALL';
+  });
+  const [albumFilter, setAlbumFilter] = useState<string>(() => getUrlParam('album') || 'ALL');
+  const [artistFilter, setArtistFilter] = useState<string>(() => getUrlParam('artist') || 'ALL');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<string>(songs[0]?.id || '');
+  const [selectedId, setSelectedId] = useState<string>(() => {
+    const fromUrl = getUrlParam('song');
+    if (fromUrl) {
+      const matched = songs.find(
+        (s) => s.id === fromUrl || s.title.toLowerCase() === fromUrl.toLowerCase()
+      );
+      if (matched) return matched.id;
+    }
+    return songs[0]?.id || '';
+  });
 
-  const [tab, setTab] = useState<LyricsTab>('breakdown');
+  const [tab, setTab] = useState<LyricsTab>(() => {
+    const t = getUrlParam('tab');
+    return t === 'vocab' || t === 'typing' ? t : 'breakdown';
+  });
   const [showTranslations, setShowTranslations] = useState(true);
   const [showNotes, setShowNotes] = useState(true);
   const [widePlayer, setWidePlayer] = useState(false);
@@ -113,6 +129,16 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
       null
     );
   }, [filteredSongs, songs, selectedId]);
+
+  useEffect(() => {
+    syncUrlParams({
+      status: statusFilter !== 'ALL' ? statusFilter : null,
+      artist: artistFilter !== 'ALL' ? artistFilter : null,
+      album: albumFilter !== 'ALL' ? albumFilter : null,
+      song: activeSong?.id || null,
+      tab: tab !== 'breakdown' ? tab : null,
+    });
+  }, [statusFilter, artistFilter, albumFilter, activeSong?.id, tab]);
 
   useEffect(() => {
     setLyricSearch('');
