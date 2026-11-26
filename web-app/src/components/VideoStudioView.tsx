@@ -311,6 +311,7 @@ function saveCustomTranscript(videoId: string, cues: TranscriptCue[]): void {
 }
 
 const CHANNEL_CHIPS = [
+  { key: 'saved', label: 'Đã lưu phụ đề' },
   { key: 'all', label: 'Tất cả kênh' },
   { key: 'ted-ed', label: 'TED-Ed' },
   { key: 'bbc-learning', label: 'BBC Learning English' },
@@ -320,6 +321,50 @@ const CHANNEL_CHIPS = [
   { key: 'kurzgesagt', label: 'Kurzgesagt' },
   { key: 'ted', label: 'TED Talks' },
 ] as const;
+
+interface SavedSheetVideoItem {
+  videoId: string;
+  title: string;
+  channelName: string;
+  cueCount: number;
+  updatedAt: string;
+  url: string;
+  thumbnail: string;
+}
+
+function serializeCuesForSheet(cues: TranscriptCue[]): string {
+  return cues
+    .map((c) => {
+      const safeChapter = (c.chapter || '').replace(/[\r\n|]+/g, ' ').trim();
+      const safeText = (c.text || '').replace(/[\r\n]+/g, ' ').replace(/\|/g, '¦').trim();
+      return `${c.start}|${c.dur}|${safeChapter}|${safeText}`;
+    })
+    .join('\n');
+}
+
+function deserializeCuesFromSheet(raw: string): TranscriptCue[] {
+  const out: TranscriptCue[] = [];
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const parts = trimmed.split('|');
+    if (parts.length >= 4) {
+      const start = parseFloat(parts[0]);
+      const dur = parseFloat(parts[1]);
+      const chapter = parts[2].trim() || undefined;
+      const text = parts.slice(3).join('|').replace(/¦/g, '|').trim();
+      if (text) {
+        out.push({
+          start: Number.isNaN(start) ? 0 : start,
+          dur: Number.isNaN(dur) ? 4 : dur,
+          chapter,
+          text,
+        });
+      }
+    }
+  }
+  return out.length > 0 ? out : parsePastedTranscript(raw);
+}
 
 const COMMON_STOPWORDS = new Set([
   'about', 'above', 'after', 'again', 'against', 'almost', 'alone', 'along', 'already', 'also',
@@ -478,6 +523,7 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
   // --- Feed State ---
   const [channelKey, setChannelKey] = useState<string>('all');
   const [feedVideos, setFeedVideos] = useState<YoutubeFeedItem[]>([]);
+  const [savedSheetVideos, setSavedSheetVideos] = useState<SavedSheetVideoItem[]>([]);
   const [feedLoading, setFeedLoading] = useState<boolean>(false);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [feedSearch, setFeedSearch] = useState<string>('');
@@ -505,6 +551,10 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
   const [quickTermInput, setQuickTermInput] = useState<string>('');
   const [pasteBoxOpen, setPasteBoxOpen] = useState<boolean>(false);
   const [pasteDraft, setPasteDraft] = useState<string>('');
+  const [transcriptSyncState, setTranscriptSyncState] = useState<{
+    status: 'idle' | 'saving' | 'saved' | 'error';
+    message?: string;
+  }>({ status: 'idle' });
 
   // --- Word & Phrase Learning State ---
   const [highlightKnown, setHighlightKnown] = useState<boolean>(true);
@@ -525,27 +575,116 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
   const cueRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const loopCueRef = useRef<{ start: number; end: number } | null>(null);
 
-  // Fetch curated YouTube feed
-  const loadFeed = useCallback(async (ch: string) => {
-    setFeedLoading(true);
-    setFeedError(null);
+  // Fetch list of videos already saved with transcripts in Google Sheets (for instant mobile access!)
+  const loadSavedSheetVideos = useCallback(async () => {
+    const cfg = loadSharedWebhookConfig();
+    if (!serverConfigured && !cfg.url.trim()) return;
     try {
-      const res = await fetch(`/api/youtube?channel=${encodeURIComponent(ch)}`);
+      const res = await fetch('/api/save-vocab', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'list_saved_videos',
+          webhookUrl: cfg.url.trim() || undefined,
+          secret: cfg.secret.trim() || undefined,
+        }),
+      });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      setFeedVideos(Array.isArray(data.videos) ? data.videos : []);
-    } catch (err) {
-      setFeedError(err instanceof Error ? err.message : 'Không tải được danh sách video YouTube.');
-    } finally {
-      setFeedLoading(false);
+      if (res.ok && data?.ok && Array.isArray(data.videos)) {
+        setSavedSheetVideos(data.videos);
+      }
+    } catch {
+      // Ignore silently if old Apps Script version doesn't have list_saved_videos yet
     }
-  }, []);
+  }, [serverConfigured]);
+
+  useEffect(() => {
+    if (isSheetConnected) {
+      loadSavedSheetVideos();
+    }
+  }, [isSheetConnected, loadSavedSheetVideos]);
+
+  // Fetch curated YouTube feed
+  const loadFeed = useCallback(
+    async (ch: string) => {
+      if (ch === 'saved') {
+        await loadSavedSheetVideos();
+        return;
+      }
+      setFeedLoading(true);
+      setFeedError(null);
+      try {
+        const res = await fetch(`/api/youtube?channel=${encodeURIComponent(ch)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+        setFeedVideos(Array.isArray(data.videos) ? data.videos : []);
+      } catch (err) {
+        setFeedError(err instanceof Error ? err.message : 'Không tải được danh sách video YouTube.');
+      } finally {
+        setFeedLoading(false);
+      }
+    },
+    [loadSavedSheetVideos]
+  );
 
   useEffect(() => {
     loadFeed(channelKey);
   }, [channelKey, loadFeed]);
 
-  // Open video & load timed English transcript
+  // Save transcript cues to Google Sheets (Video Transcripts tab) so phone sees it instantly!
+  const syncTranscriptToSheet = async (
+    video: { videoId: string; title: string; channelName: string; url: string },
+    cuesToSave: TranscriptCue[]
+  ) => {
+    if (!cuesToSave.length) return;
+    const cfg = loadSharedWebhookConfig();
+    if (!serverConfigured && !cfg.url.trim()) {
+      setTranscriptSyncState({
+        status: 'error',
+        message:
+          'Đã lưu cục bộ trên máy này. Hãy kết nối Apps Script (trong News/Book Studio) để đồng bộ sang điện thoại.',
+      });
+      return;
+    }
+
+    setTranscriptSyncState({ status: 'saving', message: 'Đang lưu phụ đề lên Google Sheets...' });
+    try {
+      const serialized = serializeCuesForSheet(cuesToSave);
+      const res = await fetch('/api/save-vocab', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_video_transcript',
+          webhookUrl: cfg.url.trim() || undefined,
+          secret: cfg.secret.trim() || undefined,
+          videoId: video.videoId,
+          title: video.title,
+          channelName: video.channelName,
+          url: video.url,
+          transcriptText: serialized,
+          cueCount: cuesToSave.length,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+      setTranscriptSyncState({
+        status: 'saved',
+        message: `Đã lưu ${cuesToSave.length} câu phụ đề lên Google Sheets ✓ (Mở trên điện thoại sẽ thấy ngay!)`,
+      });
+      loadSavedSheetVideos();
+    } catch (err) {
+      setTranscriptSyncState({
+        status: 'error',
+        message:
+          (err instanceof Error ? err.message : 'Lỗi lưu lên Google Sheets.') +
+          ' (Hãy đảm bảo đã cập nhật mã Apps Script mới nhất hỗ trợ Video Transcripts.)',
+      });
+    }
+  };
+
+  // Open video & load timed English transcript (checks Google Sheets Video Transcripts FIRST!)
   const openVideo = async (videoInput: string, preset?: { title?: string; channelName?: string }) => {
     setTranscriptLoading(true);
     setTranscriptError(null);
@@ -557,6 +696,7 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
     setCurrentTime(0);
     setPlaybackRate(1);
     setTranscriptSearch('');
+    setTranscriptSyncState({ status: 'idle' });
 
     try {
       const res = await fetch(`/api/youtube?video=${encodeURIComponent(videoInput)}`);
@@ -566,7 +706,45 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
       }
       let finalData: TranscriptResponse = data;
 
-      // Fallback 1: Previously pasted transcript cached in localStorage
+      // Priority 1: Check Google Sheets "Video Transcripts" tab (synced from desktop -> phone!)
+      if (isSheetConnected) {
+        try {
+          const cfg = loadSharedWebhookConfig();
+          const shRes = await fetch('/api/save-vocab', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'get_video_transcript',
+              videoId: data.videoId,
+              webhookUrl: cfg.url.trim() || undefined,
+              secret: cfg.secret.trim() || undefined,
+            }),
+          });
+          const shJson = await shRes.json();
+          if (shRes.ok && shJson?.ok && shJson.found && shJson.transcriptText) {
+            const parsedSheetCues = deserializeCuesFromSheet(shJson.transcriptText);
+            if (parsedSheetCues.length > 0) {
+              finalData = {
+                ...data,
+                title: preset?.title || shJson.title || data.title,
+                channelName: preset?.channelName || shJson.channelName || data.channelName,
+                hasTranscript: true,
+                cues: parsedSheetCues,
+                note: 'Đã tải phụ đề đồng bộ từ Google Sheets (Video Transcripts).',
+              };
+              saveCustomTranscript(data.videoId, parsedSheetCues);
+              setTranscriptSyncState({
+                status: 'saved',
+                message: 'Đã đồng bộ từ tab Video Transcripts trên Google Sheets ✓',
+              });
+            }
+          }
+        } catch {
+          // Continue to local/Apps Script fallbacks
+        }
+      }
+
+      // Priority 2: Previously pasted transcript cached in localStorage
       if (!finalData.hasTranscript || !finalData.cues?.length) {
         const savedLocalCues = loadSavedTranscript(data.videoId);
         if (savedLocalCues) {
@@ -574,12 +752,12 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
             ...data,
             hasTranscript: true,
             cues: savedLocalCues,
-            note: 'Đang dùng phụ đề bạn đã dán (đã lưu sẵn cho video này).',
+            note: 'Đang dùng phụ đề đã lưu cục bộ trên thiết bị này.',
           };
         }
       }
 
-      // Fallback 2: Try user's Google Apps Script (runs on Google network, bypasses AWS/Vercel IP blocks!)
+      // Priority 3: Try user's Google Apps Script live caption fetcher
       if ((!finalData.hasTranscript || !finalData.cues?.length) && isSheetConnected) {
         try {
           const cfg = loadSharedWebhookConfig();
@@ -1076,16 +1254,35 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
     return found.size;
   }, [cues, findSheetMatch]);
 
+  const savedVideoIdSet = useMemo(
+    () => new Set(savedSheetVideos.map((v) => v.videoId)),
+    [savedSheetVideos]
+  );
+
   const filteredFeed = useMemo(() => {
+    const sourceList: YoutubeFeedItem[] =
+      channelKey === 'saved'
+        ? savedSheetVideos.map((v) => ({
+            videoId: v.videoId,
+            title: v.title,
+            channelKey: 'saved',
+            channelName: v.channelName,
+            category: `${v.cueCount} câu phụ đề`,
+            publishedAt: v.updatedAt,
+            description: 'Đã đồng bộ phụ đề trên Google Sheets — mở trên điện thoại học ngay!',
+            thumbnail: v.thumbnail,
+            url: v.url,
+          }))
+        : feedVideos;
     const q = feedSearch.trim().toLowerCase();
-    if (!q) return feedVideos;
-    return feedVideos.filter(
+    if (!q) return sourceList;
+    return sourceList.filter(
       (v) =>
         v.title.toLowerCase().includes(q) ||
         v.channelName.toLowerCase().includes(q) ||
         v.description.toLowerCase().includes(q)
     );
-  }, [feedVideos, feedSearch]);
+  }, [channelKey, savedSheetVideos, feedVideos, feedSearch]);
 
   const filteredCueIndices = useMemo(() => {
     const q = transcriptSearch.trim().toLowerCase();
@@ -1189,11 +1386,15 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
                   onClick={() => setChannelKey(ch.key)}
                   className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap transition ${
                     channelKey === ch.key
-                      ? 'bg-rose-600 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                      ? ch.key === 'saved'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-rose-600 text-white shadow-xs'
+                      : ch.key === 'saved'
+                        ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
                   }`}
                 >
-                  {ch.label}
+                  {ch.key === 'saved' ? `${ch.label} (${savedSheetVideos.length})` : ch.label}
                 </button>
               ))}
             </div>
@@ -1371,6 +1572,11 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
                     <span className="absolute top-2.5 left-2.5 rounded-lg bg-slate-950/80 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-xs">
                       {vid.channelName}
                     </span>
+                    {savedVideoIdSet.has(vid.videoId) && (
+                      <span className="absolute top-2.5 right-2.5 rounded-lg bg-emerald-600/95 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
+                        Có phụ đề trên Sheet ✓
+                      </span>
+                    )}
                     <span className="absolute right-2.5 bottom-2.5 rounded-lg bg-rose-600/90 px-2 py-0.5 text-[10px] font-bold text-white">
                       {vid.category}
                     </span>
@@ -1663,18 +1869,57 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
                     <ClipboardPaste className="h-3.5 w-3.5" />
                     <span>Dán phụ đề</span>
                   </button>
+
+                  {cues.length > 0 && isSheetConnected && (
+                    <button
+                      type="button"
+                      disabled={transcriptSyncState.status === 'saving'}
+                      onClick={() => activeVideo && syncTranscriptToSheet(activeVideo, cues)}
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-bold transition disabled:opacity-60 ${
+                        transcriptSyncState.status === 'saved'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      }`}
+                      title="Lưu phụ đề này lên tab Video Transcripts trên Google Sheets để điện thoại mở thấy ngay"
+                    >
+                      {transcriptSyncState.status === 'saving' ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : transcriptSyncState.status === 'saved' ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Cloud className="h-3.5 w-3.5" />
+                      )}
+                      <span>
+                        {transcriptSyncState.status === 'saved'
+                          ? 'Đã lưu lên Sheet ✓'
+                          : 'Lưu phụ đề lên Sheet'}
+                      </span>
+                    </button>
+                  )}
                 </div>
+
+                {transcriptSyncState.message && (
+                  <p
+                    className={`rounded-xl px-3 py-1.5 text-[11px] font-semibold ${
+                      transcriptSyncState.status === 'error'
+                        ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+                        : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                    }`}
+                  >
+                    {transcriptSyncState.message}
+                  </p>
+                )}
 
                 {pasteBoxOpen && (
                   <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/60 dark:bg-amber-950/30">
                     <p className="text-[11px] leading-relaxed text-amber-900 dark:text-amber-200">
-                      Mở video trên YouTube → bấm <strong>...more → Show transcript</strong> → bôi đen copy toàn bộ (kèm mốc giờ <code>0:07</code>) rồi dán vào đây để đồng bộ chạy theo video!
+                      Mở video trên YouTube → bấm <strong>...more → Show transcript</strong> → copy toàn bộ rồi dán vào đây. Hệ thống sẽ tự làm sạch, đồng bộ theo giây và <strong>tự đẩy lên Google Sheets</strong> để điện thoại cũng xem được ngay!
                     </p>
                     <textarea
                       rows={5}
                       value={pasteDraft}
                       onChange={(e) => setPasteDraft(e.target.value)}
-                      placeholder={"0:07\nYou open your fridge to grab a snack...\n0:12\nWhat happens if you eat moldy food?"}
+                      placeholder={"0:00\nFrom BBC Learning English...\n0:06\nIn this programme..."}
                       className="w-full rounded-xl border border-amber-300 bg-white p-2.5 text-xs text-slate-800 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                     />
                     <div className="flex items-center justify-end gap-2">
@@ -1702,10 +1947,13 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
                           }));
                           setPasteBoxOpen(false);
                           setPasteDraft('');
+                          if (isSheetConnected) {
+                            syncTranscriptToSheet(activeVideo, parsed);
+                          }
                         }}
                         className="rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700"
                       >
-                        Đồng bộ phụ đề ngay
+                        Đồng bộ & Lưu lên Google Sheets
                       </button>
                     </div>
                   </div>

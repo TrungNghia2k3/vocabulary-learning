@@ -50,6 +50,9 @@ export async function forwardToGoogleSheet(body = {}) {
     totalPages: body.totalPages,
     bookmarks: body.bookmarks,
     videoId: body.videoId,
+    channelName: body.channelName,
+    transcriptText: body.transcriptText,
+    cueCount: body.cueCount,
   };
 
   const res = await fetch(targetUrl, {

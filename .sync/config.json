@@ -30,6 +30,7 @@
     "News Vocab": "News Vocab.csv",
     "Book Vocab": "Book Vocab.csv",
     "Bookshelf": "Bookshelf.csv",
-    "Video Vocab": "Video Vocab.csv"
+    "Video Vocab": "Video Vocab.csv",
+    "Video Transcripts": "Video Transcripts.csv"
   }
 }
