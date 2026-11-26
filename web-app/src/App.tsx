@@ -18,6 +18,7 @@ import {
   Music,
   Newspaper,
   Puzzle,
+  Tv,
 } from 'lucide-react';
 import { buildLibrary } from './data/sheetParser';
 import { Navbar } from './components/Navbar';
@@ -35,6 +36,7 @@ import { IeltsSpeakingView } from './components/IeltsSpeakingView';
 import { LyricsView } from './components/LyricsView';
 import { NewsView } from './components/NewsView';
 import { BookStudioView } from './components/BookStudioView';
+import { VideoStudioView } from './components/VideoStudioView';
 import type { Accent, AppMode } from './types';
 import {
   getStudyStreak,
@@ -64,6 +66,7 @@ const NAV_TABS: Array<{ id: AppMode; label: string; icon: typeof Home }> = [
   { id: 'lyrics', label: 'Lyrics', icon: Music },
   { id: 'news', label: 'Đọc báo', icon: Newspaper },
   { id: 'books', label: 'Đọc sách PDF', icon: BookOpen },
+  { id: 'video', label: 'Xem YouTube', icon: Tv },
   { id: 'prepositions', label: 'Giới từ', icon: Link2 },
   { id: 'phrasal-verbs', label: 'Phrasal Verbs', icon: GitBranch },
   { id: 'idioms', label: 'Idioms', icon: MessageSquareQuote },
@@ -206,6 +209,7 @@ export default function App() {
           'lyrics',
           'news',
           'books',
+          'video',
         ].includes(mode) &&
         selectedDeck !== 'ALL' &&
         availableTopics.length > 1 && (
@@ -357,6 +361,8 @@ export default function App() {
         )}
 
         {mode === 'books' && <BookStudioView allVocab={library.vocab} accent={accent} />}
+
+        {mode === 'video' && <VideoStudioView allVocab={library.vocab} accent={accent} />}
 
         {(mode === 'prepositions' ||
           mode === 'phrasal-verbs' ||

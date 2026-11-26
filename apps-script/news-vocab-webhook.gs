@@ -20,6 +20,7 @@ const BOOKS_FOLDER_NAME = 'VocabStudio Books';
 
 const NEWS_VOCAB_SHEET = 'News Vocab';
 const BOOK_VOCAB_SHEET = 'Book Vocab';
+const VIDEO_VOCAB_SHEET = 'Video Vocab';
 const NEWS_SHEET = 'News';
 const BOOKSHELF_SHEET = 'Bookshelf';
 
@@ -43,6 +44,18 @@ const BOOK_VOCAB_HEADERS = [
   'Example',
   'Topic',
   'Page',
+  'Cambridge',
+  'Saved Date',
+];
+
+const VIDEO_VOCAB_HEADERS = [
+  'Word',
+  'Part of Speech',
+  'Phonetic',
+  'Meaning Vietnamese',
+  'Example',
+  'Topic',
+  'Timestamp',
   'Cambridge',
   'Saved Date',
 ];
@@ -284,11 +297,22 @@ function doPost(e) {
       return jsonOut({ ok: true, status: 'added', row: newsSheet.getLastRow() });
     }
 
-    // 6. Lưu từ vựng 1-click vào tab News Vocab hoặc Book Vocab (mặc định News Vocab)
-    const targetSheetName = payload.targetSheet === BOOK_VOCAB_SHEET ? BOOK_VOCAB_SHEET : NEWS_VOCAB_SHEET;
+    // 6. Lưu từ vựng 1-click vào tab News Vocab, Book Vocab hoặc Video Vocab
+    const targetSheetName =
+      payload.targetSheet === BOOK_VOCAB_SHEET
+        ? BOOK_VOCAB_SHEET
+        : payload.targetSheet === VIDEO_VOCAB_SHEET
+          ? VIDEO_VOCAB_SHEET
+          : NEWS_VOCAB_SHEET;
     const isBookVocab = targetSheetName === BOOK_VOCAB_SHEET;
-    const headers = isBookVocab ? BOOK_VOCAB_HEADERS : NEWS_VOCAB_HEADERS;
-    const sheet = getOrCreateSheet(ss, targetSheetName, headers, isBookVocab ? '#1D4ED8' : '#0F766E');
+    const isVideoVocab = targetSheetName === VIDEO_VOCAB_SHEET;
+    const headers = isBookVocab
+      ? BOOK_VOCAB_HEADERS
+      : isVideoVocab
+        ? VIDEO_VOCAB_HEADERS
+        : NEWS_VOCAB_HEADERS;
+    const headerBg = isBookVocab ? '#1D4ED8' : isVideoVocab ? '#DC2626' : '#0F766E';
+    const sheet = getOrCreateSheet(ss, targetSheetName, headers, headerBg);
 
     const entries = Array.isArray(payload.entries)
       ? payload.entries
@@ -339,6 +363,18 @@ function doPost(e) {
           String(item.example || '').trim(),
           String(item.topic || item.bookTitle || 'Book').trim(),
           String(item.page || '').trim(),
+          cambridge,
+          String(item.savedDate || todayStr),
+        ]);
+      } else if (isVideoVocab) {
+        rowsToAppend.push([
+          word,
+          String(item.partOfSpeech || '').trim(),
+          String(item.phonetic || '').trim(),
+          String(item.meaning || '').trim(),
+          String(item.example || '').trim(),
+          String(item.topic || item.videoTitle || 'YouTube').trim(),
+          String(item.timestamp || '').trim(),
           cambridge,
           String(item.savedDate || todayStr),
         ]);

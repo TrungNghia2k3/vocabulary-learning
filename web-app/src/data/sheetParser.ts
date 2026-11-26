@@ -1591,6 +1591,7 @@ export function buildLibrary(): ParsedLibrary {
     'News',
     'News Vocab',
     'Book Vocab',
+    'Video Vocab',
     'Adjective',
     'Verb',
     'Adjective Practice',

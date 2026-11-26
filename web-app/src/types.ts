@@ -18,7 +18,8 @@ export type AppMode =
   | 'ielts-speaking'
   | 'lyrics'
   | 'news'
-  | 'books';
+  | 'books'
+  | 'video';
 
 export interface WordPair {
   word: string;

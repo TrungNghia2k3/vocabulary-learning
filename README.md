@@ -61,6 +61,9 @@ Mở trình duyệt tại `http://localhost:5173`. Mỗi khi bạn chỉnh sửa
   - Thả các file PDF sách tiếng Anh vào thư mục Google Drive **`VocabStudio Books`** (hoặc chọn mở file `.pdf` trực tiếp từ máy tính/điện thoại).
   - Hỗ trợ **Chế độ Học (Smart Reflow Reader)** (tự tách đoạn sạch sẽ, chỉnh cỡ chữ, tự tô sáng từ đã học trong Google Sheets, chạm tra từ + dịch nhanh từng đoạn + nghe đọc sách UK/US) và **Chế độ PDF gốc** (render trang nguyên bản kèm hình ảnh/biểu đồ).
   - Dùng chung **Google Apps Script Webhook** (`apps-script/news-vocab-webhook.gs`): bấm lưu từ 1-click nhảy thẳng vào tab **`Book Vocab`** (nhóm theo tên sách ở cột `Topic` để ôn bằng Flashcard/Quiz), đồng thời tự động đồng bộ **trang đang đọc & Bookmark** qua tab **`Bookshelf`** giữa Máy tính và Điện thoại.
+- **Video Studio (`Xem YouTube`) + Sheet `Video Vocab`:**
+  - Cập nhật video mới từ các kênh học thuật chuẩn tiếng Anh (**TED-Ed, BBC Learning English, Vox, National Geographic, BBC Earth, Kurzgesagt, TED Talks**) hoặc dán bất kỳ link YouTube nào.
+  - Trình phát YouTube đồng bộ phụ đề tiếng Anh theo thời gian thực (bấm mốc giây nhảy video, lặp 1 câu luyện Shadowing, chỉnh tốc độ `0.75x–1.25x`, ẩn chữ luyện nghe, chọn 1 từ hoặc chọn cả cụm từ lưu thẳng 1-click vào tab **`Video Vocab`**).
 
 ### 3. Khi tạo một Sheet (Tab) mới hoàn toàn
 1. Bấm dấu **`+`** tạo tab mới trên Google Sheet.

@@ -130,6 +130,31 @@ function vocabSheetsPlugin(): Plugin {
           );
         }
       });
+
+      // Dev middleware for /api/youtube (curated channels + timed English transcript)
+      server.middlewares.use('/api/youtube', async (req, res) => {
+        try {
+          // @ts-expect-error runtime ESM import from repo root api helper
+          const core = await import('../api/_youtubeCore.mjs');
+          const urlObj = new URL(req.url || '/', 'http://localhost');
+          const video = urlObj.searchParams.get('video');
+          const channel = urlObj.searchParams.get('channel') || 'all';
+          const payload = video
+            ? await core.fetchYoutubeTranscript(video)
+            : await core.fetchYoutubeFeed(channel);
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify(payload));
+        } catch (err) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(
+            JSON.stringify({
+              error: err instanceof Error ? err.message : 'YouTube API error',
+            })
+          );
+        }
+      });
     },
   };
 }

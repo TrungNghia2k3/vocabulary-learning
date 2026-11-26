@@ -21,6 +21,7 @@ import {
   Sparkles,
   TrendingUp,
   Trophy,
+  Tv,
 } from 'lucide-react';
 import type { AppMode, DeckInfo, ParsedLibrary, VocabItem } from '../types';
 
@@ -173,6 +174,13 @@ export function Dashboard({
       count: library.vocab.filter((v) => v.deck === 'Book Vocab').length,
       icon: BookOpen,
       subtitle: 'Đọc sách PDF đồng bộ Google Drive, chạm tra từ, nghe đọc & lưu thẳng Sheet',
+    },
+    {
+      mode: 'video',
+      title: 'Video Studio (YouTube)',
+      count: library.vocab.filter((v) => v.deck === 'Video Vocab').length,
+      icon: Tv,
+      subtitle: 'TED-Ed, BBC, Vox, NatGeo — phụ đề đồng bộ thời gian thực, lặp Shadowing & lưu cụm từ',
     },
     {
       mode: 'prepositions',
