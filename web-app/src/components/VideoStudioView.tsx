@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Clock,
   Cloud,
+  ClipboardPaste,
   ExternalLink,
   Eye,
   EyeOff,
@@ -115,6 +116,116 @@ declare global {
 }
 
 const SAVED_VIDEO_WORDS_KEY = 'vocabStudio:videoSavedWords:v1';
+const CUSTOM_TRANSCRIPT_PREFIX = 'vocabStudio:ytTranscript:v1:';
+
+function parseTimeToSeconds(token: string): number {
+  const parts = token
+    .trim()
+    .replace(',', '.')
+    .split(':')
+    .map((p) => parseFloat(p));
+  if (parts.some((n) => Number.isNaN(n))) return 0;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return parts[0] || 0;
+}
+
+/**
+ * Parse pasted YouTube "Show transcript" text ("0:07\nSentence..."),
+ * SRT/VTT subtitles, or plain English paragraphs into interactive synced cues.
+ */
+function parsePastedTranscript(raw: string): TranscriptCue[] {
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (!lines.length) return [];
+
+  const timeOnlyRe = /^(?:\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d+)?$/;
+  const srtRangeRe = /^(\d{1,2}:\d{2}:\d{2}[.,]\d+)\s*-->\s*(\d{1,2}:\d{2}:\d{2}[.,]\d+)/;
+  const inlineTimeRe = /^[\[(]?((?:\d{1,2}:)?\d{1,2}:\d{2})[\])]?\s+(.+)$/;
+
+  const cues: TranscriptCue[] = [];
+  let pendingStart: number | null = null;
+  let pendingDur = 4;
+  let buffer: string[] = [];
+
+  const flush = (nextStart?: number) => {
+    const text = buffer.join(' ').replace(/\s+/g, ' ').trim();
+    if (text && pendingStart !== null) {
+      const dur =
+        nextStart !== undefined && nextStart > pendingStart
+          ? Math.min(18, Math.max(1.5, nextStart - pendingStart))
+          : pendingDur;
+      cues.push({ start: Number(pendingStart.toFixed(2)), dur: Number(dur.toFixed(2)), text });
+    }
+    buffer = [];
+  };
+
+  for (const line of lines) {
+    if (/^\d+$/.test(line)) continue; // SRT sequence index
+    if (/^WEBVTT/i.test(line)) continue;
+
+    const srtM = line.match(srtRangeRe);
+    if (srtM) {
+      const start = parseTimeToSeconds(srtM[1]);
+      const end = parseTimeToSeconds(srtM[2]);
+      flush(start);
+      pendingStart = start;
+      pendingDur = Math.max(1.5, end - start);
+      continue;
+    }
+
+    if (timeOnlyRe.test(line)) {
+      const start = parseTimeToSeconds(line);
+      flush(start);
+      pendingStart = start;
+      pendingDur = 4.5;
+      continue;
+    }
+
+    const inlineM = line.match(inlineTimeRe);
+    if (inlineM) {
+      const start = parseTimeToSeconds(inlineM[1]);
+      flush(start);
+      pendingStart = start;
+      pendingDur = 4.5;
+      buffer.push(inlineM[2]);
+      continue;
+    }
+
+    buffer.push(line);
+  }
+  flush();
+
+  if (cues.length > 0) return cues;
+
+  // Fallback: plain English text without timestamps -> split by line/paragraph
+  return lines.map((line, i) => ({
+    start: i * 5,
+    dur: 5,
+    text: line,
+  }));
+}
+
+function loadSavedTranscript(videoId: string): TranscriptCue[] | null {
+  try {
+    const raw = localStorage.getItem(CUSTOM_TRANSCRIPT_PREFIX + videoId);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCustomTranscript(videoId: string, cues: TranscriptCue[]): void {
+  try {
+    localStorage.setItem(CUSTOM_TRANSCRIPT_PREFIX + videoId, JSON.stringify(cues));
+  } catch {
+    // ignore
+  }
+}
 
 const CHANNEL_CHIPS = [
   { key: 'all', label: 'Tất cả kênh' },
@@ -308,6 +419,9 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
   const [showOfficialVi, setShowOfficialVi] = useState<boolean>(true);
   const [cueTranslations, setCueTranslations] = useState<Record<number, string>>({});
   const [translatingCueIdx, setTranslatingCueIdx] = useState<number | null>(null);
+  const [quickTermInput, setQuickTermInput] = useState<string>('');
+  const [pasteBoxOpen, setPasteBoxOpen] = useState<boolean>(false);
+  const [pasteDraft, setPasteDraft] = useState<string>('');
 
   // --- Word & Phrase Learning State ---
   const [highlightKnown, setHighlightKnown] = useState<boolean>(true);
@@ -367,13 +481,26 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
       if (!res.ok || data.error) {
         throw new Error(data.error || `HTTP ${res.status}`);
       }
+      const savedLocalCues =
+        !data.hasTranscript || !data.cues?.length ? loadSavedTranscript(data.videoId) : null;
+      const mergedTranscript: TranscriptResponse = savedLocalCues
+        ? {
+            ...data,
+            hasTranscript: true,
+            cues: savedLocalCues,
+            note: 'Đang dùng phụ đề bạn đã dán (đã lưu sẵn cho video này).',
+          }
+        : data;
+
       setActiveVideo({
         videoId: data.videoId,
         title: preset?.title || data.title,
         channelName: preset?.channelName || data.channelName,
         url: `https://www.youtube.com/watch?v=${data.videoId}`,
       });
-      setTranscript(data);
+      setTranscript(mergedTranscript);
+      setPasteBoxOpen(false);
+      setPasteDraft('');
     } catch (err) {
       setTranscriptError(
         err instanceof Error ? err.message : 'Không mở được video YouTube này. Hãy kiểm tra lại link.'
@@ -409,7 +536,9 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
         playerVars: {
           rel: 0,
           modestbranding: 1,
-          cc_load_policy: 0,
+          cc_load_policy: 1,
+          cc_lang_pref: 'en',
+          hl: 'en',
           playsinline: 1,
         },
         events: {
@@ -1209,6 +1338,35 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
                 />
               </div>
 
+              {/* Quick Word/Phrase Lookup Bar (works seamlessly with YouTube's built-in Subtitles/CC!) */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const term = quickTermInput.trim();
+                  if (!term) return;
+                  const context =
+                    (activeCueIdx >= 0 && cues[activeCueIdx]?.text) ||
+                    `${activeVideo.title} (${formatTimestamp(currentTime)})`;
+                  handleLookupTerm(term, context, currentTime);
+                }}
+                className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xs dark:border-slate-800 dark:bg-slate-900"
+              >
+                <Search className="ml-1.5 h-4 w-4 shrink-0 text-rose-500" />
+                <input
+                  type="text"
+                  value={quickTermInput}
+                  onChange={(e) => setQuickTermInput(e.target.value)}
+                  placeholder="Nghe / thấy từ hay cụm từ trên phụ đề CC? Gõ vào đây để tra & lưu ngay..."
+                  className="flex-1 bg-transparent text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none dark:text-slate-100"
+                />
+                <button
+                  type="submit"
+                  className="shrink-0 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700"
+                >
+                  Tra & Lưu
+                </button>
+              </form>
+
               {/* Active Subtitle Spotlight Box (like Language Reactor bottom caption!) */}
               {activeCueIdx >= 0 && cues[activeCueIdx] && (
                 <div className="rounded-2xl border border-rose-200 bg-white p-3.5 shadow-xs dark:border-rose-900/60 dark:bg-slate-900">
@@ -1376,7 +1534,67 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
                       <span>Sub Việt</span>
                     </button>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={() => setPasteBoxOpen((o) => !o)}
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-bold ${
+                      pasteBoxOpen
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-700 dark:bg-slate-800 dark:text-slate-300'
+                    }`}
+                    title="Dán nhanh Transcript từ YouTube (Show transcript) hoặc SRT"
+                  >
+                    <ClipboardPaste className="h-3.5 w-3.5" />
+                    <span>Dán phụ đề</span>
+                  </button>
                 </div>
+
+                {pasteBoxOpen && (
+                  <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/60 dark:bg-amber-950/30">
+                    <p className="text-[11px] leading-relaxed text-amber-900 dark:text-amber-200">
+                      Mở video trên YouTube → bấm <strong>...more → Show transcript</strong> → bôi đen copy toàn bộ (kèm mốc giờ <code>0:07</code>) rồi dán vào đây để đồng bộ chạy theo video!
+                    </p>
+                    <textarea
+                      rows={5}
+                      value={pasteDraft}
+                      onChange={(e) => setPasteDraft(e.target.value)}
+                      placeholder={"0:07\nYou open your fridge to grab a snack...\n0:12\nWhat happens if you eat moldy food?"}
+                      className="w-full rounded-xl border border-amber-300 bg-white p-2.5 text-xs text-slate-800 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPasteBoxOpen(false)}
+                        className="rounded-lg px-2.5 py-1 text-xs font-bold text-slate-500 hover:bg-white/60"
+                      >
+                        Đóng
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!activeVideo) return;
+                          const parsed = parsePastedTranscript(pasteDraft);
+                          if (!parsed.length) return;
+                          saveCustomTranscript(activeVideo.videoId, parsed);
+                          setTranscript((prev) => ({
+                            videoId: activeVideo.videoId,
+                            title: prev?.title || activeVideo.title,
+                            channelName: prev?.channelName || activeVideo.channelName,
+                            durationSeconds: prev?.durationSeconds || 0,
+                            hasTranscript: true,
+                            cues: parsed,
+                          }));
+                          setPasteBoxOpen(false);
+                          setPasteDraft('');
+                        }}
+                        className="rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700"
+                      >
+                        Đồng bộ phụ đề ngay
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {phraseMode && (
                   <div className="flex items-center justify-between gap-2 rounded-xl border border-violet-200 bg-violet-50/70 px-3 py-1.5 text-[11px] text-violet-900 dark:border-violet-900/60 dark:bg-violet-950/30 dark:text-violet-200">
@@ -1419,9 +1637,27 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
                     Đang tải phụ đề tiếng Anh đồng bộ...
                   </div>
                 ) : cues.length === 0 ? (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-center text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-                    {transcript?.note ||
-                      'Video này chưa có phụ đề tiếng Anh từ YouTube. Hãy thử chọn video khác (TED-Ed, Vox, BBC Learning English thường có phụ đề chuẩn 100%).'}
+                  <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                    <p className="leading-relaxed">
+                      {transcript?.note ||
+                        'Không tự kéo được phụ đề từ máy chủ cloud cho video này.'}
+                    </p>
+                    <div className="space-y-1.5 rounded-xl bg-white/80 p-3 text-slate-700 dark:bg-slate-900/80 dark:text-slate-200">
+                      <p className="font-extrabold">2 cách học ngay với video này:</p>
+                      <p>
+                        • <strong>Cách 1 (Dùng ngay Subtitles/CC trên video):</strong> Trình phát đã tự bật sẵn <strong>CC tiếng Anh</strong> (có thể bấm icon bánh răng ⚙ trên video để bật/đổi phụ đề) + gõ nhanh từ hoặc cụm từ vào ô <strong>Tra & Lưu</strong> ngay dưới video!
+                      </p>
+                      <p>
+                        • <strong>Cách 2 (Phụ đề đồng bộ chạm từng từ):</strong> Bấm <strong>Mở YouTube → Show transcript</strong>, copy rồi dán vào nút <strong>Dán phụ đề</strong> bên trên — hệ thống sẽ tự đồng bộ mốc giây & lưu lại cho lần sau.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPasteBoxOpen(true)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700"
+                    >
+                      <ClipboardPaste className="h-3.5 w-3.5" /> Dán Transcript từ YouTube ngay
+                    </button>
                   </div>
                 ) : (
                   filteredCueIndices.map(({ c, idx }) => {
