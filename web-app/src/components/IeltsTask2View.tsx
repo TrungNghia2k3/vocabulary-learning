@@ -22,12 +22,13 @@ import {
   RotateCw,
   Search,
   Sparkles,
+  Square,
   Volume2,
   Wand2,
   X,
 } from 'lucide-react';
 import type { Accent, IeltsTask2Format, IeltsTask2Prompt, IeltsTask2Section } from '../types';
-import { speakText } from '../utils/speech';
+import { speakParagraphQueue, speakText, stopSpeaking } from '../utils/speech';
 import {
   EssayTypingPractice,
   splitIntoPracticeSentences,
@@ -172,21 +173,55 @@ function getTask2ModelBadge(prompt: IeltsTask2Prompt): string | null {
   return null;
 }
 
-/** Highlights [template slots] like [Topic] or [Argument 1] inline while wrapping cleanly. */
-function renderHighlightedTemplate(text: string) {
-  const parts = text.split(/(\[[^\]]*\])/g);
-  return parts.map((chunk, i) => {
-    if (chunk.startsWith('[') && chunk.endsWith(']')) {
-      return (
-        <span
-          key={i}
-          className="mx-0.5 inline rounded-md bg-amber-100 px-1.5 py-0.5 font-bold text-amber-900 box-decoration-clone dark:bg-amber-950/80 dark:text-amber-200"
-        >
-          {chunk}
-        </span>
-      );
+/** Highlights [template slots] like [Topic] or [Argument 1] inline while wrapping cleanly, with optional live TTS word highlight. */
+function renderHighlightedTemplate(text: string, activeWordIdx?: number | null) {
+  if (activeWordIdx === null || activeWordIdx === undefined) {
+    const parts = text.split(/(\[[^\]]*\])/g);
+    return parts.map((chunk, i) => {
+      if (chunk.startsWith('[') && chunk.endsWith(']')) {
+        return (
+          <span
+            key={i}
+            className="mx-0.5 inline rounded-md bg-amber-100 px-1.5 py-0.5 font-bold text-amber-900 box-decoration-clone dark:bg-amber-950/80 dark:text-amber-200"
+          >
+            {chunk}
+          </span>
+        );
+      }
+      return <span key={i}>{chunk}</span>;
+    });
+  }
+
+  let inBracket = false;
+  let wordIdx = 0;
+  return text.split(/(\s+)/).map((tok, i) => {
+    if (!tok || /^\s+$/.test(tok)) {
+      return <span key={i}>{tok}</span>;
     }
-    return <span key={i}>{chunk}</span>;
+    const opens = tok.includes('[');
+    const closes = tok.includes(']');
+    const isTemplate = inBracket || opens;
+    if (opens && !closes) inBracket = true;
+    else if (closes) inBracket = false;
+
+    const clean = tok.replace(/[[\]]/g, '');
+    const myIdx = clean.length > 0 ? wordIdx++ : -1;
+    const isActive = myIdx === activeWordIdx;
+
+    return (
+      <span
+        key={i}
+        className={`inline rounded-md transition-colors duration-75 ${
+          isActive
+            ? 'bg-amber-300 px-1 font-bold text-slate-950 shadow-2xs ring-2 ring-amber-400/70 dark:bg-amber-400 dark:text-slate-950'
+            : isTemplate
+              ? 'bg-amber-100 px-0.5 font-bold text-amber-900 dark:bg-amber-950/80 dark:text-amber-200'
+              : ''
+        }`}
+      >
+        {tok}
+      </span>
+    );
   });
 }
 
@@ -228,6 +263,75 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
   // Mini flashcard drill state
   const [drillIdx, setDrillIdx] = useState(0);
   const [drillFlipped, setDrillFlipped] = useState(false);
+
+  // Live TTS word-by-word read-along state
+  const [speakingKey, setSpeakingKey] = useState<string | null>(null);
+  const [speakingWord, setSpeakingWord] = useState<{ key: string; wordIdx: number } | null>(null);
+
+  const stopReadAloud = () => {
+    stopSpeaking();
+    setSpeakingKey(null);
+    setSpeakingWord(null);
+  };
+
+  useEffect(() => {
+    stopReadAloud();
+  }, [selectedId, sampleEssayIdx, tab, topMode]);
+
+  useEffect(() => {
+    return () => stopSpeaking();
+  }, []);
+
+  const handleSpeakSingle = (key: string, rawText: string, rate = 0.92) => {
+    if (speakingKey === key) {
+      stopReadAloud();
+      return;
+    }
+    const cleanText = rawText.replace(/[[\]]/g, '');
+    setSpeakingKey(key);
+    setSpeakingWord({ key, wordIdx: 0 });
+    speakText(cleanText, accent, rate, {
+      onWordChange: (wordIdx) => setSpeakingWord({ key, wordIdx }),
+      onEnd: () => {
+        setSpeakingKey(null);
+        setSpeakingWord(null);
+      },
+      onError: () => {
+        setSpeakingKey(null);
+        setSpeakingWord(null);
+      },
+    });
+  };
+
+  const handleSpeakQueue = (
+    queueKey: string,
+    queueItems: Array<{ key: string; text: string }>,
+    rate = 0.92
+  ) => {
+    if (speakingKey === queueKey) {
+      stopReadAloud();
+      return;
+    }
+    if (!queueItems.length) return;
+    setSpeakingKey(queueKey);
+    speakParagraphQueue(
+      queueItems.map((it) => ({ key: it.key, text: it.text.replace(/[[\]]/g, '') })),
+      accent,
+      rate,
+      {
+        onItemStart: (key) => setSpeakingWord({ key, wordIdx: 0 }),
+        onWordChange: (key, wordIdx) => setSpeakingWord({ key, wordIdx }),
+        onComplete: () => {
+          setSpeakingKey(null);
+          setSpeakingWord(null);
+        },
+        onError: () => {
+          setSpeakingKey(null);
+          setSpeakingWord(null);
+        },
+      }
+    );
+  };
 
   const copyWithFeedback = (key: string, text: string) => {
     if (!text) return;
@@ -986,10 +1090,15 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                       {fmt.sections.map((sec, sIdx) => {
                         const style = getPartStyle(sec.part);
                         const copyId = `fmt-sec-${fmt.id}-${sIdx}`;
+                        const isReadingFmt = speakingWord?.key === copyId;
                         return (
                           <div
                             key={`${fmt.id}-${sIdx}`}
-                            className={`flex flex-col justify-between rounded-xl border p-3.5 ${style.border} ${style.bg}`}
+                            className={`flex flex-col justify-between rounded-xl border p-3.5 transition ${
+                              isReadingFmt
+                                ? 'border-amber-400 bg-amber-50/40 ring-1 ring-amber-300/60 dark:border-amber-500/70 dark:bg-amber-950/20'
+                                : `${style.border} ${style.bg}`
+                            }`}
                           >
                             <div>
                               <div className="flex items-center justify-between gap-2">
@@ -1000,13 +1109,15 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                                 </span>
                                 <div className="flex items-center gap-1">
                                   <button
-                                    onClick={() =>
-                                      speakText(sec.text.replace(/[[\]]/g, ''), accent, 0.92)
-                                    }
-                                    title="Nghe mẫu đoạn này"
+                                    onClick={() => handleSpeakSingle(copyId, sec.text, 0.92)}
+                                    title={speakingKey === copyId ? 'Dừng phát' : 'Nghe mẫu đoạn này'}
                                     className="rounded-lg p-1.5 text-slate-400 hover:bg-white/80 hover:text-indigo-600 dark:hover:bg-slate-800"
                                   >
-                                    <Volume2 className="h-3.5 w-3.5" />
+                                    {speakingKey === copyId ? (
+                                      <Square className="h-3 w-3 fill-current text-indigo-600" />
+                                    ) : (
+                                      <Volume2 className="h-3.5 w-3.5" />
+                                    )}
                                   </button>
                                   <button
                                     onClick={() => copyWithFeedback(copyId, sec.text)}
@@ -1022,7 +1133,10 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                                 </div>
                               </div>
                               <p className="mt-2.5 text-sm leading-relaxed text-slate-800 dark:text-slate-100">
-                                {renderHighlightedTemplate(sec.text)}
+                                {renderHighlightedTemplate(
+                                  sec.text,
+                                  isReadingFmt ? speakingWord.wordIdx : null
+                                )}
                               </p>
                             </div>
                           </div>
@@ -1296,11 +1410,26 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() =>
-                      speakText(fullSampleText.replace(/[[\]]/g, ''), accent, 0.92)
+                      handleSpeakQueue(
+                        't2-sample-full',
+                        activeSampleSections.map((sec, idx) => ({
+                          key: `sample-sec-${idx}`,
+                          text: sec.text,
+                        })),
+                        0.92
+                      )
                     }
                     className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50 dark:border-slate-700 dark:text-indigo-300"
                   >
-                    <Volume2 className="h-3.5 w-3.5" /> Nghe toàn bài
+                    {speakingKey === 't2-sample-full' ? (
+                      <>
+                        <Square className="h-3 w-3 fill-current" /> Dừng đọc
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="h-3.5 w-3.5" /> Nghe toàn bài
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() =>
@@ -1331,10 +1460,15 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                 {activeSampleSections.map((sec, idx) => {
                   const style = getPartStyle(sec.part);
                   const copyId = `sample-sec-${idx}`;
+                  const isReadingSec = speakingWord?.key === copyId;
                   return (
                     <div
                       key={`${sec.part}-${idx}`}
-                      className={`rounded-2xl border p-4 shadow-xs ${style.border} ${style.bg}`}
+                      className={`rounded-2xl border p-4 shadow-xs transition ${
+                        isReadingSec
+                          ? 'border-amber-400 bg-amber-50/40 ring-1 ring-amber-300/60 dark:border-amber-500/70 dark:bg-amber-950/20'
+                          : `${style.border} ${style.bg}`
+                      }`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
@@ -1349,11 +1483,15 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                         </div>
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => speakText(sec.text.replace(/[[\]]/g, ''), accent, 0.92)}
+                            onClick={() => handleSpeakSingle(copyId, sec.text, 0.92)}
                             className="rounded-lg p-1.5 text-slate-400 hover:bg-white/80 hover:text-indigo-600 dark:hover:bg-slate-800"
-                            title="Nghe đoạn này"
+                            title={speakingKey === copyId ? 'Dừng phát' : 'Nghe đoạn này'}
                           >
-                            <Volume2 className="h-4 w-4" />
+                            {speakingKey === copyId ? (
+                              <Square className="h-3.5 w-3.5 fill-current text-indigo-600" />
+                            ) : (
+                              <Volume2 className="h-4 w-4" />
+                            )}
                           </button>
                           <button
                             onClick={() => copyWithFeedback(copyId, sec.text.replace(/[[\]]/g, ''))}
@@ -1369,7 +1507,10 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                         </div>
                       </div>
                       <p className="mt-2.5 text-sm leading-relaxed text-slate-800 sm:text-[15px] dark:text-slate-100">
-                        {renderHighlightedTemplate(sec.text)}
+                        {renderHighlightedTemplate(
+                          sec.text,
+                          isReadingSec ? speakingWord.wordIdx : null
+                        )}
                       </p>
                     </div>
                   );

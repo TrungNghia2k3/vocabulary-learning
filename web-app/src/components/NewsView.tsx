@@ -37,7 +37,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import type { Accent, NewsArticleItem, VocabItem } from '../types';
-import { speakText, stopSpeaking } from '../utils/speech';
+import { speakParagraphQueue, speakText, stopSpeaking } from '../utils/speech';
 import { APPS_SCRIPT_WEBHOOK_CODE } from '../utils/appsScriptTemplate';
 import {
   cleanPhraseText,
@@ -233,6 +233,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
   } | null>(null);
   const [speechRate, setSpeechRate] = useState<number>(0.95);
   const [speakingKey, setSpeakingKey] = useState<string | null>(null);
+  const [speakingWord, setSpeakingWord] = useState<{ paraKey: string; wordIdx: number } | null>(null);
   const [lookup, setLookup] = useState<ReaderLookupResult | null>(null);
   const [savedWords, setSavedWords] = useState<SavedNewsWord[]>(() => loadSavedNewsWords());
   const [savedDrawerOpen, setSavedDrawerOpen] = useState(false);
@@ -341,6 +342,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
   const openLiveArticle = async (item: LiveFeedItem) => {
     stopSpeaking();
     setSpeakingKey(null);
+    setSpeakingWord(null);
     setSelectedLive(item);
     setLiveParagraphs([]);
     setLiveWordCount(0);
@@ -368,16 +370,54 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
     }
   };
 
-  const handleSpeak = (key: string, text: string) => {
-    if (speakingKey === key) {
-      stopSpeaking();
-      setSpeakingKey(null);
+  const clearSpeech = () => {
+    stopSpeaking();
+    setSpeakingKey(null);
+    setSpeakingWord(null);
+  };
+
+  const handleSpeak = (paraKey: string, text: string) => {
+    if (speakingKey === paraKey) {
+      clearSpeech();
       return;
     }
-    setSpeakingKey(key);
+    setSpeakingKey(paraKey);
+    setSpeakingWord({ paraKey, wordIdx: 0 });
     speakText(text, accent, speechRate, {
-      onEnd: () => setSpeakingKey(null),
-      onError: () => setSpeakingKey(null),
+      onWordChange: (wordIdx) => setSpeakingWord({ paraKey, wordIdx }),
+      onEnd: () => {
+        setSpeakingKey(null);
+        setSpeakingWord(null);
+      },
+      onError: () => {
+        setSpeakingKey(null);
+        setSpeakingWord(null);
+      },
+    });
+  };
+
+  const handleSpeakQueue = (queueKey: string, items: Array<{ key: string; text: string }>) => {
+    if (speakingKey === queueKey) {
+      clearSpeech();
+      return;
+    }
+    if (!items.length) return;
+    setSpeakingKey(queueKey);
+    speakParagraphQueue(items, accent, speechRate, {
+      onItemStart: (paraKey) => {
+        setSpeakingWord({ paraKey, wordIdx: 0 });
+        const el = document.querySelector(`[data-news-para="${paraKey}"]`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      },
+      onWordChange: (paraKey, wordIdx) => setSpeakingWord({ paraKey, wordIdx }),
+      onComplete: () => {
+        setSpeakingKey(null);
+        setSpeakingWord(null);
+      },
+      onError: () => {
+        setSpeakingKey(null);
+        setSpeakingWord(null);
+      },
     });
   };
 
@@ -758,6 +798,8 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
           const cleaned = normalizeToken(tok);
           const isAnchor =
             phraseAnchor?.paraKey === paraKey && phraseAnchor.wordIdx === myWordIdx;
+          const isSpokenWord =
+            speakingWord?.paraKey === paraKey && speakingWord.wordIdx === myWordIdx;
           const isInActiveLookup =
             lookup?.paraKey === paraKey &&
             typeof lookup.wordStartIdx === 'number' &&
@@ -765,12 +807,15 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
             myWordIdx >= lookup.wordStartIdx &&
             myWordIdx <= lookup.wordEndIdx;
 
-          if (cleaned.length < 1 && !phraseMode) return <span key={idx}>{tok}</span>;
+          if (cleaned.length < 1 && !phraseMode && !isSpokenWord) return <span key={idx}>{tok}</span>;
           const matched = highlightKnown ? findSheetMatch(cleaned) : undefined;
 
           let cls =
             'cursor-pointer rounded px-0.5 transition hover:bg-indigo-100/80 hover:text-indigo-800 dark:hover:bg-indigo-950/70 dark:hover:text-indigo-200';
-          if (isAnchor) {
+          if (isSpokenWord) {
+            cls =
+              'cursor-pointer rounded bg-amber-300 px-1 font-bold text-slate-950 shadow-2xs ring-2 ring-amber-400/70 transition-colors duration-75 dark:bg-amber-400 dark:text-slate-950';
+          } else if (isAnchor) {
             cls =
               'cursor-pointer rounded bg-violet-600 px-1 font-bold text-white ring-2 ring-violet-300 transition';
           } else if (isInActiveLookup) {
@@ -973,8 +1018,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
               <button
                 type="button"
                 onClick={() => {
-                  stopSpeaking();
-                  setSpeakingKey(null);
+                  clearSpeech();
                   setStudioMode('live');
                 }}
                 className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
@@ -989,8 +1033,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
               <button
                 type="button"
                 onClick={() => {
-                  stopSpeaking();
-                  setSpeakingKey(null);
+                  clearSpeech();
                   setStudioMode('deep');
                 }}
                 className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
@@ -1601,8 +1644,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
               <button
                 type="button"
                 onClick={() => {
-                  stopSpeaking();
-                  setSpeakingKey(null);
+                  clearSpeech();
                   setSelectedLive(null);
                   setLookup(null);
                 }}
@@ -1764,7 +1806,10 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                   <button
                     type="button"
                     onClick={() =>
-                      handleSpeak('live-all', liveParagraphs.slice(0, 12).join(' '))
+                      handleSpeakQueue(
+                        'live-all',
+                        liveParagraphs.map((text, idx) => ({ key: `live-${idx}`, text }))
+                      )
                     }
                     className="inline-flex items-center gap-1 rounded-lg bg-teal-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-teal-700"
                   >
@@ -1800,17 +1845,21 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                   </p>
                 </div>
               ) : (
-                liveParagraphs.map((para, idx) => (
+                liveParagraphs.map((para, idx) => {
+                  const pKey = `live-${idx}`;
+                  const isReadingThis = speakingWord?.paraKey === pKey;
+                  return (
                   <div
                     key={idx}
+                    data-news-para={pKey}
                     className={`rounded-xl border p-3.5 transition ${
-                      speakingKey === `live-p-${idx}`
-                        ? 'border-teal-400 bg-teal-50/40 dark:border-teal-600 dark:bg-teal-950/20'
+                      isReadingThis
+                        ? 'border-amber-400 bg-amber-50/40 ring-1 ring-amber-300/60 dark:border-amber-500/70 dark:bg-amber-950/20'
                         : 'border-slate-100 bg-slate-50/40 dark:border-slate-800/80 dark:bg-slate-800/20'
                     }`}
                   >
                     <p className="text-[15px] leading-relaxed text-slate-800 sm:text-base sm:leading-7 dark:text-slate-100">
-                      {renderInteractiveParagraph(para, `live-${idx}`)}
+                      {renderInteractiveParagraph(para, pKey)}
                     </p>
 
                     {paraTranslations[idx] && (
@@ -1822,10 +1871,10 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                     <div className="mt-2.5 flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => handleSpeak(`live-p-${idx}`, para)}
+                        onClick={() => handleSpeak(pKey, para)}
                         className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 shadow-2xs hover:text-teal-700 dark:bg-slate-800 dark:text-slate-300"
                       >
-                        {speakingKey === `live-p-${idx}` ? (
+                        {speakingKey === pKey ? (
                           <>
                             <Square className="h-3 w-3 fill-current text-teal-600" /> Dừng
                           </>
@@ -1850,7 +1899,8 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                       </button>
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -2031,7 +2081,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                   </button>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   {[0.8, 0.95, 1.1].map((spd) => (
                     <button
                       key={spd}
@@ -2046,15 +2096,41 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                       {spd}x
                     </button>
                   ))}
+                  {activeDeep.paragraphs.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleSpeakQueue(
+                          'deep-all',
+                          activeDeep.paragraphs.map((p, idx) => ({ key: `deep-${idx}`, text: p.en }))
+                        )
+                      }
+                      className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-indigo-700"
+                    >
+                      {speakingKey === 'deep-all' ? (
+                        <>
+                          <Square className="h-3 w-3 fill-current" /> Dừng
+                        </>
+                      ) : (
+                        <>
+                          <Volume2 className="h-3.5 w-3.5" /> Nghe bài
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {activeDeep.paragraphs.map((p, idx) => (
+              {activeDeep.paragraphs.map((p, idx) => {
+                const pKey = `deep-${idx}`;
+                const isReadingThis = speakingWord?.paraKey === pKey;
+                return (
                 <div
                   key={idx}
+                  data-news-para={pKey}
                   className={`rounded-2xl border bg-white p-4 shadow-xs transition dark:bg-slate-900 ${
-                    speakingKey === `deep-p-${idx}`
-                      ? 'border-indigo-400 ring-1 ring-indigo-300 dark:border-indigo-500'
+                    isReadingThis
+                      ? 'border-amber-400 bg-amber-50/30 ring-1 ring-amber-300/60 dark:border-amber-500/70 dark:bg-amber-950/20'
                       : 'border-slate-200 dark:border-slate-800'
                   }`}
                 >
@@ -2064,10 +2140,10 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                     </span>
                     <button
                       type="button"
-                      onClick={() => handleSpeak(`deep-p-${idx}`, p.en)}
+                      onClick={() => handleSpeak(pKey, p.en)}
                       className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-indigo-100 hover:text-indigo-700 dark:bg-slate-800 dark:text-slate-200"
                     >
-                      {speakingKey === `deep-p-${idx}` ? (
+                      {speakingKey === pKey ? (
                         <>
                           <Square className="h-3 w-3 fill-current text-indigo-600" /> Dừng
                         </>
@@ -2080,7 +2156,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                   </div>
 
                   <p className="mt-2.5 text-[15px] leading-relaxed text-slate-900 sm:text-base sm:leading-7 dark:text-slate-100">
-                    {renderInteractiveParagraph(p.en, `deep-${idx}`)}
+                    {renderInteractiveParagraph(p.en, pKey)}
                   </p>
 
                   {showVi && p.vi && (
@@ -2095,7 +2171,8 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

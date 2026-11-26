@@ -37,7 +37,7 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import type { Accent, VocabItem } from '../types';
-import { speakText, stopSpeaking } from '../utils/speech';
+import { speakParagraphQueue, speakText, stopSpeaking } from '../utils/speech';
 import { APPS_SCRIPT_WEBHOOK_CODE } from '../utils/appsScriptTemplate';
 import {
   cleanPhraseText,
@@ -376,6 +376,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
   } | null>(null);
   const [speechRate, setSpeechRate] = useState<number>(0.95);
   const [speakingKey, setSpeakingKey] = useState<string | null>(null);
+  const [speakingWord, setSpeakingWord] = useState<{ paraKey: string; wordIdx: number } | null>(null);
   const [paraTranslations, setParaTranslations] = useState<Record<number, string>>({});
   const [translatingIdx, setTranslatingIdx] = useState<number | null>(null);
   const [progressSyncStatus, setProgressSyncStatus] = useState<'idle' | 'syncing' | 'synced'>('idle');
@@ -588,6 +589,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
   const openPdfWithBuffer = async (book: CachedBookMeta, arrayBuffer: ArrayBuffer) => {
     stopSpeaking();
     setSpeakingKey(null);
+    setSpeakingWord(null);
     setLookup(null);
     setParaTranslations({});
     setDownloadError(null);
@@ -773,6 +775,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
     setPhraseAnchor(null);
     stopSpeaking();
     setSpeakingKey(null);
+    setSpeakingWord(null);
 
     (async () => {
       try {
@@ -857,18 +860,61 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
     persistBookProgress(updated, currentPage, totalPages, nextBms);
   };
 
-  // --- Speech & Translation ---
-  const handleSpeak = (key: string, text: string) => {
-    if (speakingKey === key) {
-      stopSpeaking();
-      setSpeakingKey(null);
+  // --- Speech & Translation (with live word-by-word read-along highlight!) ---
+  const clearSpeechState = () => {
+    stopSpeaking();
+    setSpeakingKey(null);
+    setSpeakingWord(null);
+  };
+
+  const handleSpeakParagraph = (paraKey: string, text: string) => {
+    if (speakingKey === paraKey) {
+      clearSpeechState();
       return;
     }
-    setSpeakingKey(key);
+    setSpeakingKey(paraKey);
+    setSpeakingWord({ paraKey, wordIdx: 0 });
     speakText(text, accent, speechRate, {
-      onEnd: () => setSpeakingKey(null),
-      onError: () => setSpeakingKey(null),
+      onWordChange: (wordIdx) => setSpeakingWord({ paraKey, wordIdx }),
+      onEnd: () => {
+        setSpeakingKey(null);
+        setSpeakingWord(null);
+      },
+      onError: () => {
+        setSpeakingKey(null);
+        setSpeakingWord(null);
+      },
     });
+  };
+
+  const handleSpeakPage = () => {
+    if (speakingKey === 'book-page') {
+      clearSpeechState();
+      return;
+    }
+    if (!pageParagraphs.length) return;
+    setSpeakingKey('book-page');
+    speakParagraphQueue(
+      pageParagraphs.map((text, idx) => ({ key: `book-${currentPage}-${idx}`, text })),
+      accent,
+      speechRate,
+      {
+        onItemStart: (paraKey) => {
+          setSpeakingWord({ paraKey, wordIdx: 0 });
+          const el = document.querySelector(`[data-book-para="${paraKey}"]`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        },
+        onWordChange: (paraKey, wordIdx) => setSpeakingWord({ paraKey, wordIdx }),
+        onComplete: () => {
+          setSpeakingKey(null);
+          setSpeakingWord(null);
+        },
+        onError: () => {
+          setSpeakingKey(null);
+          setSpeakingWord(null);
+        },
+      }
+    );
   };
 
   const handleTranslateParagraph = async (idx: number, text: string) => {
@@ -1156,6 +1202,8 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
           const cleaned = normalizeToken(tok);
           const isAnchor =
             phraseAnchor?.paraKey === paraKey && phraseAnchor.wordIdx === myWordIdx;
+          const isSpokenWord =
+            speakingWord?.paraKey === paraKey && speakingWord.wordIdx === myWordIdx;
           const isInActiveLookup =
             lookup?.paraKey === paraKey &&
             typeof lookup.wordStartIdx === 'number' &&
@@ -1163,12 +1211,15 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
             myWordIdx >= lookup.wordStartIdx &&
             myWordIdx <= lookup.wordEndIdx;
 
-          if (cleaned.length < 1 && !phraseMode) return <span key={idx}>{tok}</span>;
+          if (cleaned.length < 1 && !phraseMode && !isSpokenWord) return <span key={idx}>{tok}</span>;
           const matched = highlightKnown ? findSheetMatch(cleaned) : undefined;
 
           let cls =
             'cursor-pointer rounded px-0.5 transition hover:bg-blue-100/80 hover:text-blue-800 dark:hover:bg-blue-950/70 dark:hover:text-blue-200';
-          if (isAnchor) {
+          if (isSpokenWord) {
+            cls =
+              'cursor-pointer rounded bg-amber-300 px-1 font-bold text-slate-950 shadow-2xs ring-2 ring-amber-400/70 transition-colors duration-75 dark:bg-amber-400 dark:text-slate-950';
+          } else if (isAnchor) {
             cls =
               'cursor-pointer rounded bg-violet-600 px-1 font-bold text-white ring-2 ring-violet-300 transition';
           } else if (isInActiveLookup) {
@@ -1818,8 +1869,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
                 <button
                   type="button"
                   onClick={() => {
-                    stopSpeaking();
-                    setSpeakingKey(null);
+                    clearSpeechState();
                     setActiveBook(null);
                     setPdfDoc(null);
                     setLookup(null);
@@ -2009,7 +2059,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
                     {pageParagraphs.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => handleSpeak('book-page', pageParagraphs.join(' '))}
+                        onClick={handleSpeakPage}
                         className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-blue-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-blue-700"
                       >
                         {speakingKey === 'book-page' ? (
@@ -2115,12 +2165,16 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {pageParagraphs.map((para, idx) => (
+                  {pageParagraphs.map((para, idx) => {
+                    const pKey = `book-${currentPage}-${idx}`;
+                    const isReadingThisPara = speakingWord?.paraKey === pKey;
+                    return (
                     <div
                       key={idx}
+                      data-book-para={pKey}
                       className={`rounded-xl border p-3.5 transition ${
-                        speakingKey === `book-p-${idx}`
-                          ? 'border-blue-400 bg-blue-50/40 dark:border-blue-600 dark:bg-blue-950/20'
+                        isReadingThisPara
+                          ? 'border-amber-400 bg-amber-50/40 ring-1 ring-amber-300/60 dark:border-amber-500/70 dark:bg-amber-950/20'
                           : 'border-slate-100 bg-slate-50/30 dark:border-slate-800/80 dark:bg-slate-800/20'
                       }`}
                     >
@@ -2128,7 +2182,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
                         style={{ fontSize: `${fontSize}px`, lineHeight: 1.72 }}
                         className="text-slate-800 dark:text-slate-100"
                       >
-                        {renderInteractiveParagraph(para, `book-${currentPage}-${idx}`)}
+                        {renderInteractiveParagraph(para, pKey)}
                       </p>
 
                       {paraTranslations[idx] && (
@@ -2140,10 +2194,10 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
                       <div className="mt-2.5 flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => handleSpeak(`book-p-${idx}`, para)}
+                          onClick={() => handleSpeakParagraph(pKey, para)}
                           className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 shadow-2xs hover:text-blue-700 dark:bg-slate-800 dark:text-slate-300"
                         >
-                          {speakingKey === `book-p-${idx}` ? (
+                          {speakingKey === pKey ? (
                             <>
                               <Square className="h-3 w-3 fill-current text-blue-600" /> Dừng
                             </>
@@ -2168,7 +2222,8 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
                         </button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

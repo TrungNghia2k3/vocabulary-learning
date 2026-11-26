@@ -182,6 +182,7 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
   const [activeSentenceIdx, setActiveSentenceIdx] = useState<number>(0);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('idle');
   const [isSpeakingNow, setIsSpeakingNow] = useState<boolean>(false);
+  const [speakingWordIdx, setSpeakingWordIdx] = useState<number | null>(null);
   const [pauseCountdown, setPauseCountdown] = useState<number | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -266,6 +267,7 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
     }
     setPlaybackMode('idle');
     setIsSpeakingNow(false);
+    setSpeakingWordIdx(null);
     setPauseCountdown(null);
   }, []);
 
@@ -370,15 +372,22 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
       setActiveSentenceIdx(idx);
       setPlaybackMode('single');
       setIsSpeakingNow(true);
+      setSpeakingWordIdx(0);
       speakText(activeItem.sentences[idx], accent, rate, {
+        onWordChange: (wIdx) => {
+          if (sessionTokenRef.current !== token) return;
+          setSpeakingWordIdx(wIdx);
+        },
         onEnd: () => {
           if (sessionTokenRef.current !== token) return;
           setIsSpeakingNow(false);
+          setSpeakingWordIdx(null);
           setPlaybackMode('idle');
         },
         onError: () => {
           if (sessionTokenRef.current !== token) return;
           setIsSpeakingNow(false);
+          setSpeakingWordIdx(null);
           setPlaybackMode('idle');
         },
       });
@@ -398,15 +407,22 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
       const speakOnce = () => {
         if (sessionTokenRef.current !== token) return;
         setIsSpeakingNow(true);
+        setSpeakingWordIdx(0);
         speakText(activeItem.sentences[idx], accent, rate, {
+          onWordChange: (wIdx) => {
+            if (sessionTokenRef.current !== token) return;
+            setSpeakingWordIdx(wIdx);
+          },
           onEnd: () => {
             if (sessionTokenRef.current !== token) return;
             setIsSpeakingNow(false);
+            setSpeakingWordIdx(null);
             waitWithCountdown(pauseSeconds, token, speakOnce);
           },
           onError: () => {
             if (sessionTokenRef.current !== token) return;
             setIsSpeakingNow(false);
+            setSpeakingWordIdx(null);
             setPlaybackMode('idle');
           },
         });
@@ -428,15 +444,22 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
         if (sessionTokenRef.current !== token) return;
         if (idx >= activeItem.sentences.length) {
           setIsSpeakingNow(false);
+          setSpeakingWordIdx(null);
           setPlaybackMode('idle');
           return;
         }
         setActiveSentenceIdx(idx);
         setIsSpeakingNow(true);
+        setSpeakingWordIdx(0);
         speakText(activeItem.sentences[idx], accent, rate, {
+          onWordChange: (wIdx) => {
+            if (sessionTokenRef.current !== token) return;
+            setSpeakingWordIdx(wIdx);
+          },
           onEnd: () => {
             if (sessionTokenRef.current !== token) return;
             setIsSpeakingNow(false);
+            setSpeakingWordIdx(null);
             if (continuous) {
               waitWithCountdown(0.35, token, () => runIndex(idx + 1));
             } else {
@@ -446,6 +469,7 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
           onError: () => {
             if (sessionTokenRef.current !== token) return;
             setIsSpeakingNow(false);
+            setSpeakingWordIdx(null);
             setPlaybackMode('idle');
           },
         });
@@ -1085,7 +1109,31 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
                       </span>
 
                       <p className="text-sm leading-relaxed text-slate-800 sm:text-[15px] dark:text-slate-100">
-                        {scriptMode === 'full' && sentence}
+                        {scriptMode === 'full' &&
+                          (isPlayingThis && speakingWordIdx !== null
+                            ? (() => {
+                                let wIdx = 0;
+                                return sentence.split(/(\s+)/).map((tok, tIdx) => {
+                                  if (!tok || /^\s+$/.test(tok)) {
+                                    return <span key={tIdx}>{tok}</span>;
+                                  }
+                                  const myIdx = wIdx++;
+                                  const isSpoken = myIdx === speakingWordIdx;
+                                  return (
+                                    <span
+                                      key={tIdx}
+                                      className={`rounded-md transition-colors duration-75 ${
+                                        isSpoken
+                                          ? 'bg-amber-300 px-1 font-bold text-slate-950 shadow-2xs ring-2 ring-amber-400/70 dark:bg-amber-400 dark:text-slate-950'
+                                          : ''
+                                      }`}
+                                    >
+                                      {tok}
+                                    </span>
+                                  );
+                                });
+                              })()
+                            : sentence)}
                         {scriptMode === 'keywords' && renderKeywordMasked(sentence)}
                         {scriptMode === 'hidden' && (
                           <span className="inline-block rounded-lg bg-slate-200/80 px-2 py-0.5 text-slate-400 select-none blur-[4px] transition group-hover:blur-none dark:bg-slate-800">

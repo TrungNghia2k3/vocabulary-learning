@@ -19,6 +19,7 @@ import {
   PenLine,
   RotateCcw,
   Search,
+  Square,
   Volume2,
   X,
   ZoomIn,
@@ -29,7 +30,7 @@ import type {
   IeltsTask1Item,
   IeltsTask1Section,
 } from '../types';
-import { speakText } from '../utils/speech';
+import { speakParagraphQueue, speakText, stopSpeaking } from '../utils/speech';
 import {
   EssayTypingPractice,
   splitIntoPracticeSentences,
@@ -131,21 +132,55 @@ function assembleEssayParagraphs(
   return paragraphs.filter(Boolean);
 }
 
-/** Highlights [template slots] like [the lake side] or [9] inside Map/Chart Example sentences. */
-function renderHighlightedTemplate(text: string) {
-  const parts = text.split(/(\[[^\]]+\])/g);
-  return parts.map((chunk, i) => {
-    if (chunk.startsWith('[') && chunk.endsWith(']')) {
-      return (
-        <span
-          key={i}
-          className="mx-0.5 inline rounded-md bg-amber-100 px-1.5 py-0.5 font-bold text-amber-900 box-decoration-clone dark:bg-amber-950/80 dark:text-amber-200"
-        >
-          {chunk}
-        </span>
-      );
+/** Highlights [template slots] like [the lake side] or [9] inside Map/Chart Example sentences, with optional live TTS word highlight. */
+function renderHighlightedTemplate(text: string, activeWordIdx?: number | null) {
+  if (activeWordIdx === null || activeWordIdx === undefined) {
+    const parts = text.split(/(\[[^\]]+\])/g);
+    return parts.map((chunk, i) => {
+      if (chunk.startsWith('[') && chunk.endsWith(']')) {
+        return (
+          <span
+            key={i}
+            className="mx-0.5 inline rounded-md bg-amber-100 px-1.5 py-0.5 font-bold text-amber-900 box-decoration-clone dark:bg-amber-950/80 dark:text-amber-200"
+          >
+            {chunk}
+          </span>
+        );
+      }
+      return <span key={i}>{chunk}</span>;
+    });
+  }
+
+  let inBracket = false;
+  let wordIdx = 0;
+  return text.split(/(\s+)/).map((tok, i) => {
+    if (!tok || /^\s+$/.test(tok)) {
+      return <span key={i}>{tok}</span>;
     }
-    return <span key={i}>{chunk}</span>;
+    const opens = tok.includes('[');
+    const closes = tok.includes(']');
+    const isTemplate = inBracket || opens;
+    if (opens && !closes) inBracket = true;
+    else if (closes) inBracket = false;
+
+    const clean = tok.replace(/[[\]]/g, '');
+    const myIdx = clean.length > 0 ? wordIdx++ : -1;
+    const isActive = myIdx === activeWordIdx;
+
+    return (
+      <span
+        key={i}
+        className={`inline rounded-md transition-colors duration-75 ${
+          isActive
+            ? 'bg-amber-300 px-1 font-bold text-slate-950 shadow-2xs ring-2 ring-amber-400/70 dark:bg-amber-400 dark:text-slate-950'
+            : isTemplate
+              ? 'bg-amber-100 px-0.5 font-bold text-amber-900 dark:bg-amber-950/80 dark:text-amber-200'
+              : ''
+        }`}
+      >
+        {tok}
+      </span>
+    );
   });
 }
 
@@ -174,6 +209,75 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
   // Practice drafts saved per task id in localStorage
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [revealedParts, setRevealedParts] = useState<Record<string, boolean>>({});
+
+  // Live TTS word-by-word read-along state
+  const [speakingKey, setSpeakingKey] = useState<string | null>(null);
+  const [speakingWord, setSpeakingWord] = useState<{ key: string; wordIdx: number } | null>(null);
+
+  const stopReadAloud = () => {
+    stopSpeaking();
+    setSpeakingKey(null);
+    setSpeakingWord(null);
+  };
+
+  useEffect(() => {
+    stopReadAloud();
+  }, [selectedId, essayIdx, studyTab, topSection]);
+
+  useEffect(() => {
+    return () => stopSpeaking();
+  }, []);
+
+  const handleSpeakSingle = (key: string, rawText: string, rate = 0.92) => {
+    if (speakingKey === key) {
+      stopReadAloud();
+      return;
+    }
+    const cleanText = rawText.replace(/[[\]]/g, '');
+    setSpeakingKey(key);
+    setSpeakingWord({ key, wordIdx: 0 });
+    speakText(cleanText, accent, rate, {
+      onWordChange: (wordIdx) => setSpeakingWord({ key, wordIdx }),
+      onEnd: () => {
+        setSpeakingKey(null);
+        setSpeakingWord(null);
+      },
+      onError: () => {
+        setSpeakingKey(null);
+        setSpeakingWord(null);
+      },
+    });
+  };
+
+  const handleSpeakQueue = (
+    queueKey: string,
+    queueItems: Array<{ key: string; text: string }>,
+    rate = 0.9
+  ) => {
+    if (speakingKey === queueKey) {
+      stopReadAloud();
+      return;
+    }
+    if (!queueItems.length) return;
+    setSpeakingKey(queueKey);
+    speakParagraphQueue(
+      queueItems.map((it) => ({ key: it.key, text: it.text.replace(/[[\]]/g, '') })),
+      accent,
+      rate,
+      {
+        onItemStart: (key) => setSpeakingWord({ key, wordIdx: 0 }),
+        onWordChange: (key, wordIdx) => setSpeakingWord({ key, wordIdx }),
+        onComplete: () => {
+          setSpeakingKey(null);
+          setSpeakingWord(null);
+        },
+        onError: () => {
+          setSpeakingKey(null);
+          setSpeakingWord(null);
+        },
+      }
+    );
+  };
 
   const filtered = useMemo(() => {
     if (typeFilter === 'all') return items;
@@ -974,23 +1078,41 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
                         </div>
                         <button
                           onClick={() =>
-                            speakText(
-                              sec.sentences.map((s) => s.text.replace(/[[\]]/g, '')).join(' '),
-                              accent,
+                            handleSpeakQueue(
+                              `t1-sec-${secIdx}`,
+                              sec.sentences.map((s, sIdx) => ({
+                                key: `t1-sec-${secIdx}-sent-${sIdx}`,
+                                text: s.text,
+                              })),
                               0.92
                             )
                           }
                           className="inline-flex items-center gap-1 rounded-lg bg-white/80 px-2.5 py-1 text-xs font-semibold text-indigo-600 shadow-2xs hover:bg-white dark:bg-slate-900 dark:text-indigo-300"
                         >
-                          <Volume2 className="h-3.5 w-3.5" /> Nghe phần này
+                          {speakingKey === `t1-sec-${secIdx}` ? (
+                            <>
+                              <Square className="h-3 w-3 fill-current" /> Dừng
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="h-3.5 w-3.5" /> Nghe phần này
+                            </>
+                          )}
                         </button>
                       </div>
 
                       <div className="space-y-2.5">
-                        {sec.sentences.map((sent, idx) => (
+                        {sec.sentences.map((sent, idx) => {
+                          const sentKey = `t1-sec-${secIdx}-sent-${idx}`;
+                          const isReadingSent = speakingWord?.key === sentKey;
+                          return (
                           <div
                             key={idx}
-                            className="flex items-start justify-between gap-3 rounded-xl bg-white p-3.5 shadow-2xs dark:bg-slate-900"
+                            className={`flex items-start justify-between gap-3 rounded-xl p-3.5 shadow-2xs transition ${
+                              isReadingSent
+                                ? 'bg-amber-50/70 ring-1 ring-amber-400/70 dark:bg-amber-950/25'
+                                : 'bg-white dark:bg-slate-900'
+                            }`}
                           >
                             <div className="min-w-0 flex-1">
                               {isAlternatives && (
@@ -999,7 +1121,10 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
                                 </span>
                               )}
                               <p className="text-sm leading-relaxed font-medium text-slate-800 dark:text-slate-100">
-                                {renderHighlightedTemplate(sent.text)}
+                                {renderHighlightedTemplate(
+                                  sent.text,
+                                  isReadingSent ? speakingWord.wordIdx : null
+                                )}
                               </p>
                               {sent.meaning && (
                                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1008,16 +1133,19 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
                               )}
                             </div>
                             <button
-                              onClick={() =>
-                                speakText(sent.text.replace(/[[\]]/g, ''), accent, 0.92)
-                              }
-                              title="Phát âm câu này"
+                              onClick={() => handleSpeakSingle(sentKey, sent.text, 0.92)}
+                              title={speakingKey === sentKey ? 'Dừng phát' : 'Phát âm câu này'}
                               className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950"
                             >
-                              <Volume2 className="h-4 w-4" />
+                              {speakingKey === sentKey ? (
+                                <Square className="h-3.5 w-3.5 fill-current text-indigo-600" />
+                              ) : (
+                                <Volume2 className="h-4 w-4" />
+                              )}
                             </button>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -1050,11 +1178,26 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
                   <div className="flex gap-2">
                     <button
                       onClick={() =>
-                        speakText(fullEssayText.replace(/[[\]]/g, ''), accent, 0.9)
+                        handleSpeakQueue(
+                          't1-full-essay',
+                          fullParagraphs.map((para, idx) => ({
+                            key: `t1-essay-p-${idx}`,
+                            text: para,
+                          })),
+                          0.9
+                        )
                       }
                       className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300"
                     >
-                      <Volume2 className="h-3.5 w-3.5" /> Đọc cả bài
+                      {speakingKey === 't1-full-essay' ? (
+                        <>
+                          <Square className="h-3 w-3 fill-current" /> Dừng đọc
+                        </>
+                      ) : (
+                        <>
+                          <Volume2 className="h-3.5 w-3.5" /> Đọc cả bài
+                        </>
+                      )}
                     </button>
                     <button
                       onClick={handleCopyEssay}
@@ -1125,10 +1268,23 @@ export function IeltsTask1View({ items, examples, accent }: IeltsTask1ViewProps)
                   </div>
                 )}
 
-                <div className="mt-5 space-y-4 text-[15px] leading-7 text-slate-800 dark:text-slate-100">
-                  {fullParagraphs.map((para, idx) => (
-                    <p key={idx}>{renderHighlightedTemplate(para)}</p>
-                  ))}
+                <div className="mt-5 space-y-3 text-[15px] leading-7 text-slate-800 dark:text-slate-100">
+                  {fullParagraphs.map((para, idx) => {
+                    const pKey = `t1-essay-p-${idx}`;
+                    const isReading = speakingWord?.key === pKey;
+                    return (
+                      <p
+                        key={idx}
+                        className={`rounded-xl px-2.5 py-2 transition ${
+                          isReading
+                            ? 'bg-amber-50/70 ring-1 ring-amber-400/60 dark:bg-amber-950/25'
+                            : ''
+                        }`}
+                      >
+                        {renderHighlightedTemplate(para, isReading ? speakingWord.wordIdx : null)}
+                      </p>
+                    );
+                  })}
                 </div>
               </div>
             )}
