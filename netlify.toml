@@ -1,6 +1,12 @@
 [build]
   command = "cd web-app && npm install && npm run build"
   publish = "web-app/dist"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/news"
+  to = "/.netlify/functions/news"
+  status = 200
 
 [[redirects]]
   from = "/*"

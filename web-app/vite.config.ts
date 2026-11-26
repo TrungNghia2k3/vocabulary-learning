@@ -69,6 +69,31 @@ function vocabSheetsPlugin(): Plugin {
         server.watcher.on('add', reloadSheets);
         server.watcher.on('unlink', reloadSheets);
       }
+
+      // Dev middleware for /api/news so Live News Reader works identically on localhost:5173
+      server.middlewares.use('/api/news', async (req, res) => {
+        try {
+          // @ts-expect-error runtime ESM import from repo root api helper
+          const core = await import('../api/_newsCore.mjs');
+          const urlObj = new URL(req.url || '/', 'http://localhost');
+          const articleUrl = urlObj.searchParams.get('articleUrl');
+          const category = urlObj.searchParams.get('category') || 'all';
+          const payload = articleUrl
+            ? await core.fetchFullArticle(articleUrl)
+            : await core.fetchLiveNewsFeed(category);
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify(payload));
+        } catch (err) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(
+            JSON.stringify({
+              error: err instanceof Error ? err.message : 'News API error',
+            })
+          );
+        }
+      });
     },
   };
 }

@@ -16,7 +16,8 @@ export type AppMode =
   | 'ielts-task1'
   | 'ielts-task2'
   | 'ielts-speaking'
-  | 'lyrics';
+  | 'lyrics'
+  | 'news';
 
 export interface WordPair {
   word: string;
@@ -244,6 +245,43 @@ export interface SongLyricItem {
   personalNote?: string;
 }
 
+export interface NewsParagraph {
+  en: string;
+  vi?: string;
+  note?: string;
+}
+
+export interface NewsVocabItem {
+  word: string;
+  level?: string;
+  meaning: string;
+  usage?: string;
+  quote?: string;
+}
+
+export interface NewsQuizQuestion {
+  type: 'TFNG' | 'MCQ';
+  question: string;
+  options?: string[];
+  answer: string;
+  explanation: string;
+}
+
+export interface NewsArticleItem {
+  id: string;
+  url: string;
+  title: string;
+  source: string;
+  category: string;
+  status: 'Pending' | 'Done';
+  publishedDate?: string;
+  imageUrl?: string;
+  summaryPoints: string[];
+  paragraphs: NewsParagraph[];
+  vocab: NewsVocabItem[];
+  quiz: NewsQuizQuestion[];
+}
+
 export interface ParsedLibrary {
   vocab: VocabItem[];
   decks: DeckInfo[];
@@ -257,5 +295,6 @@ export interface ParsedLibrary {
   ieltsTask2Formats: IeltsTask2Format[];
   ieltsSpeaking: IeltsSpeakingItem[];
   lyrics: SongLyricItem[];
+  news: NewsArticleItem[];
   loadedAt: string;
 }

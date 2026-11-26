@@ -14,6 +14,10 @@ import type {
   LyricLine,
   LyricSection,
   LyricVocabItem,
+  NewsArticleItem,
+  NewsParagraph,
+  NewsQuizQuestion,
+  NewsVocabItem,
   ParsedLibrary,
   PhrasalVerbItem,
   PrepositionItem,
@@ -1419,6 +1423,137 @@ function parseLyricsSheet(rows: string[][]): SongLyricItem[] {
   return out;
 }
 
+function parseNewsSheet(rows: string[][]): NewsArticleItem[] {
+  const out: NewsArticleItem[] = [];
+  if (rows.length < 2) return out;
+
+  const headerIdx = rows.findIndex((r) =>
+    r.some((c) => /article url|title|bilingual breakdown/i.test(c || ''))
+  );
+  if (headerIdx === -1) return out;
+
+  const header = rows[headerIdx] || [];
+  const colOf = (re: RegExp, fallback: number) => {
+    const idx = header.findIndex((c) => re.test(c || ''));
+    return idx >= 0 ? idx : fallback;
+  };
+
+  const urlCol = colOf(/article url|url|link/i, 0);
+  const titleCol = colOf(/^title|tiêu đề/i, 1);
+  const sourceCol = colOf(/source|nguồn/i, 2);
+  const categoryCol = colOf(/category|chủ đề/i, 3);
+  const statusCol = colOf(/status|trạng thái/i, 4);
+  const dateCol = colOf(/published|date|ngày/i, 5);
+  const summaryCol = colOf(/summary|takeaways|tóm tắt/i, 6);
+  const breakdownCol = colOf(/bilingual|breakdown|song ngữ/i, 7);
+  const vocabCol = colOf(/vocab|collocations|từ vựng/i, 8);
+  const quizCol = colOf(/quiz|reading|câu hỏi/i, 9);
+  const imageCol = colOf(/image|ảnh/i, 10);
+
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const r = rows[i];
+    const url = (r[urlCol] || '').trim();
+    const rawTitle = (r[titleCol] || '').trim();
+    if (!url && !rawTitle) continue;
+
+    const summaryPoints = splitLines(r[summaryCol] || '').map((l) =>
+      l.replace(/^[•\-*]\s*/, '').trim()
+    );
+
+    const paragraphs: NewsParagraph[] = [];
+    for (const line of splitLines(r[breakdownCol] || '')) {
+      const [enPart, rest] = line.split(/\s*=>\s*/);
+      if (!enPart?.trim()) continue;
+      if (rest !== undefined) {
+        const [viPart, notePart] = rest.split(/\s*\|\|\s*/);
+        paragraphs.push({
+          en: enPart.trim(),
+          vi: viPart?.trim() || undefined,
+          note: notePart?.trim() || undefined,
+        });
+      } else {
+        paragraphs.push({ en: enPart.trim() });
+      }
+    }
+
+    const vocab: NewsVocabItem[] = [];
+    for (const line of splitLines(r[vocabCol] || '')) {
+      const parts = line
+        .replace(/^[•\-*]\s*/, '')
+        .split('|')
+        .map((p) => p.trim());
+      if (!parts[0]) continue;
+      if (parts.length >= 3) {
+        vocab.push({
+          word: parts[0],
+          level: parts[1] || undefined,
+          meaning: parts[2] || '',
+          usage: parts[3] || undefined,
+          quote: parts[4] || undefined,
+        });
+      } else {
+        vocab.push({
+          word: parts[0],
+          meaning: parts[1] || '',
+        });
+      }
+    }
+
+    const quiz: NewsQuizQuestion[] = [];
+    for (const line of splitLines(r[quizCol] || '')) {
+      const parts = line
+        .replace(/^[•\-*\d.)]+\s*/, '')
+        .split('|')
+        .map((p) => p.trim());
+      const kind = (parts[0] || '').toUpperCase();
+      if (kind === 'TFNG' && parts.length >= 3) {
+        quiz.push({
+          type: 'TFNG',
+          question: parts[1],
+          options: ['TRUE', 'FALSE', 'NOT GIVEN'],
+          answer: (parts[2] || '').toUpperCase(),
+          explanation: parts[3] || '',
+        });
+      } else if (kind === 'MCQ' && parts.length >= 4) {
+        const options = (parts[2] || '')
+          .split(';;')
+          .map((o) => o.trim())
+          .filter(Boolean);
+        quiz.push({
+          type: 'MCQ',
+          question: parts[1],
+          options,
+          answer: parts[3] || '',
+          explanation: parts[4] || '',
+        });
+      }
+    }
+
+    const rawStatus = (r[statusCol] || '').trim().toLowerCase();
+    const status: 'Pending' | 'Done' =
+      rawStatus === 'done' || rawStatus === 'hoàn thành' || paragraphs.length > 0
+        ? 'Done'
+        : 'Pending';
+
+    out.push({
+      id: `news::${out.length + 1}`,
+      url,
+      title: rawTitle || `Bài báo #${out.length + 1} (Chờ AI phân tích)`,
+      source: (r[sourceCol] || '').trim() || (status === 'Pending' ? 'Chờ AI lấy nguồn' : 'News'),
+      category: (r[categoryCol] || '').trim() || 'General',
+      status,
+      publishedDate: (r[dateCol] || '').trim() || undefined,
+      imageUrl: isUrl(r[imageCol] || '') ? r[imageCol].trim() : undefined,
+      summaryPoints,
+      paragraphs,
+      vocab,
+      quiz,
+    });
+  }
+
+  return out;
+}
+
 const SKIP_SHEETS = new Set(['Template']);
 
 export function buildLibrary(): ParsedLibrary {
@@ -1434,6 +1569,7 @@ export function buildLibrary(): ParsedLibrary {
   const ieltsTask2Formats: IeltsTask2Format[] = [];
   const ieltsSpeaking: IeltsSpeakingItem[] = [];
   const lyrics: SongLyricItem[] = [];
+  const news: NewsArticleItem[] = [];
 
   const preferredOrder = [
     'Comprehensible Input',
@@ -1447,6 +1583,7 @@ export function buildLibrary(): ParsedLibrary {
     'IELTS Process',
     'IELTS Listening',
     'Lyrics',
+    'News',
     'Adjective',
     'Verb',
     'Adjective Practice',
@@ -1522,6 +1659,18 @@ export function buildLibrary(): ParsedLibrary {
         fileName,
         count: parsed.length,
         hasImages: false,
+        kind: parsed.length > 0 ? 'special' : 'empty',
+      });
+      continue;
+    }
+    if (name === 'News') {
+      const parsed = parseNewsSheet(rows);
+      news.push(...parsed);
+      decks.push({
+        name,
+        fileName,
+        count: parsed.length,
+        hasImages: parsed.some((n) => Boolean(n.imageUrl)),
         kind: parsed.length > 0 ? 'special' : 'empty',
       });
       continue;
@@ -1633,6 +1782,7 @@ export function buildLibrary(): ParsedLibrary {
     ieltsTask2Formats,
     ieltsSpeaking,
     lyrics,
+    news,
     loadedAt,
   };
 }

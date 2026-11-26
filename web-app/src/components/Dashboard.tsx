@@ -16,6 +16,7 @@ import {
   MessageSquareQuote,
   Mic,
   Music,
+  Newspaper,
   Puzzle,
   Sparkles,
   TrendingUp,
@@ -158,6 +159,13 @@ export function Dashboard({
       count: library.lyrics.length,
       icon: Music,
       subtitle: 'Nghe YouTube Music, giải mã từng câu lời, slang, ẩn ý & văn hóa gốc',
+    },
+    {
+      mode: 'news',
+      title: 'News Studio (Đọc báo)',
+      count: library.news.length,
+      icon: Newspaper,
+      subtitle: 'Tin mới The Guardian & NPR chạm tra từ tại chỗ + bài phân tích sâu IELTS',
     },
     {
       mode: 'prepositions',

@@ -53,6 +53,9 @@ Mở trình duyệt tại `http://localhost:5173`. Mỗi khi bạn chỉnh sửa
 - **Sheet `Lyrics` (giải mã lời nhạc YouTube Music cùng AI Agent):**
   - Bạn chỉ cần dán **link YouTube Music** (`https://music.youtube.com/watch?v=...`) vào cột `A (YouTube Link)`, để trống các cột còn lại (hoặc chọn `Status = Pending`), rồi nhắn **"Kiểm tra thay đổi / status"**.
   - AI Agent sẽ tự lấy metadata & lyric, giải mã từng đoạn/từng câu (giữ nguyên sắc thái phóng khoáng/slang/ẩn ý gốc theo định dạng `[Section]` + `EN => Nghĩa sát gốc || Giải mã ẩn ý`) và trích kho `Key Slang & Vocab` (`phrase | Register | Nghĩa | Ngữ cảnh | Câu trích`), sau đó đổi `Status` thành `Done`, đồng bộ & đẩy lên tab **Lyrics Studio** trên web.
+- **Sheet `News` (đọc báo tiếng Anh & phân tích sâu chuẩn IELTS cùng AI Agent):**
+  - Tab **News Studio (`Đọc báo`)** hỗ trợ 2 chế độ: **Tin mới hôm nay (Live)** (lấy tin mới nhất từ *The Guardian* & *NPR*, tự tô sáng từ vựng đã học trong Google Sheets, chạm tra từ + dịch + nghe phát âm + lưu sổ từ) và **Bài phân tích sâu (`News` sheet)**.
+  - Để thêm bài báo phân tích sâu, bạn chỉ cần dán link bài báo tiếng Anh vào cột `A (Article URL)` trên tab `News` (hoặc nhắn nhờ AI chọn tin nóng trong ngày), rồi nhắn **"Kiểm tra thay đổi / status"**. AI sẽ điền tóm tắt, dịch song ngữ từng đoạn, kho từ vựng/collocation Band 7.0–8.5 và bộ câu hỏi đọc hiểu IELTS (TFNG & MCQ).
 
 ### 3. Khi tạo một Sheet (Tab) mới hoàn toàn
 1. Bấm dấu **`+`** tạo tab mới trên Google Sheet.
