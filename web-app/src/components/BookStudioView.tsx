@@ -351,6 +351,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
   // --- Bookshelf State (Local IndexedDB + Google Drive) ---
   const [books, setBooks] = useState<CachedBookMeta[]>([]);
   const [driveLoading, setDriveLoading] = useState(false);
+  const [initialShelfReady, setInitialShelfReady] = useState(false);
   const [driveError, setDriveError] = useState<string | null>(null);
   const [shelfSearch, setShelfSearch] = useState('');
   const [downloadingBookId, setDownloadingBookId] = useState<string | null>(null);
@@ -372,6 +373,9 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
       if (!bookId) return null;
       return { bookId, page: getUrlIntParam('page') };
     })()
+  );
+  const [restoringFromUrl, setRestoringFromUrl] = useState<boolean>(() =>
+    Boolean(pendingUrlBookRef.current)
   );
   const [pageParagraphs, setPageParagraphs] = useState<string[]>([]);
   const [pageLoading, setPageLoading] = useState<boolean>(false);
@@ -423,7 +427,10 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
       }
       setBooks(cached);
 
-      if (!canFetchDrive) return;
+      if (!canFetchDrive) {
+      setInitialShelfReady(true);
+      return;
+    }
 
       setDriveLoading(true);
       setDriveError(null);
@@ -493,6 +500,7 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
         setDriveError(msg);
       } finally {
         setDriveLoading(false);
+        setInitialShelfReady(true);
       }
     },
     [webhookUrl, webhookSecret]
@@ -726,13 +734,14 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
     } finally {
       setDownloadingBookId(null);
       setDownloadPercent(0);
+      setRestoringFromUrl(false);
     }
   };
 
   // Auto-open book & page from URL on F5 / shared link once books load
   useEffect(() => {
     const pending = pendingUrlBookRef.current;
-    if (!pending || activeBook || downloadingBookId || !books.length) return;
+    if (!pending || activeBook || downloadingBookId) return;
     const found = books.find(
       (b) =>
         b.id === pending.bookId ||
@@ -741,11 +750,12 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
     );
     if (found) {
       pendingUrlBookRef.current = null;
-      handleOpenBook(found, pending.page);
-    } else if (!driveLoading) {
+      handleOpenBook(found, pending.page).finally(() => setRestoringFromUrl(false));
+    } else if (initialShelfReady && !driveLoading) {
       pendingUrlBookRef.current = null;
+      setRestoringFromUrl(false);
     }
-  }, [books, driveLoading, activeBook, downloadingBookId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [books, initialShelfReady, driveLoading, activeBook, downloadingBookId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep active book, current page & reader view synced into URL
   useEffect(() => {
@@ -1692,8 +1702,33 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
         </div>
       )}
 
+      {/* ==================== RESTORING BOOK SPINNER (NO SHELF FLASH ON F5) ==================== */}
+      {!activeBook && restoringFromUrl && (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white py-20 text-center shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <Loader2 className="h-9 w-9 animate-spin text-blue-600 dark:text-blue-400" />
+          <p className="mt-3 text-sm font-bold text-slate-800 dark:text-slate-100">
+            {downloadingBookId
+              ? `Đang tải sách từ Google Drive (${downloadPercent}%)...`
+              : 'Đang mở lại cuốn sách của bạn...'}
+          </p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Vui lòng chờ trong giây lát để khôi phục đúng trang đang đọc.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              pendingUrlBookRef.current = null;
+              setRestoringFromUrl(false);
+            }}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Về kệ sách
+          </button>
+        </div>
+      )}
+
       {/* ==================== VIEW 1: BOOKSHELF ==================== */}
-      {!activeBook && (
+      {!activeBook && !restoringFromUrl && (
         <div className="space-y-4">
           {/* Shelf Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">

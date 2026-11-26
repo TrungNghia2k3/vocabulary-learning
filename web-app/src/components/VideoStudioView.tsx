@@ -538,6 +538,9 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
   const [feedSearch, setFeedSearch] = useState<string>(() => getUrlParam('q') || '');
   const [customUrlInput, setCustomUrlInput] = useState<string>('');
   const pendingUrlVideoRef = useRef<string | null>(getUrlParam('v'));
+  const [restoringFromUrl, setRestoringFromUrl] = useState<boolean>(() =>
+    Boolean(pendingUrlVideoRef.current)
+  );
 
   // --- Active Video Player + Transcript State ---
   const [activeVideo, setActiveVideo] = useState<{
@@ -812,6 +815,7 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
       );
     } finally {
       setTranscriptLoading(false);
+      setRestoringFromUrl(false);
     }
   };
 
@@ -1570,8 +1574,31 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
         </div>
       )}
 
+      {/* ==================== RESTORING VIDEO SPINNER (NO GALLERY FLASH ON F5) ==================== */}
+      {!activeVideo && restoringFromUrl && (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white py-20 text-center shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <Loader2 className="h-9 w-9 animate-spin text-rose-600 dark:text-rose-400" />
+          <p className="mt-3 text-sm font-bold text-slate-800 dark:text-slate-100">
+            Đang mở lại video YouTube & đồng bộ phụ đề...
+          </p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Vui lòng chờ trong giây lát để tải trình phát và transcript.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              pendingUrlVideoRef.current = null;
+              setRestoringFromUrl(false);
+            }}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Về danh sách video
+          </button>
+        </div>
+      )}
+
       {/* ==================== VIEW 1: CURATED YOUTUBE GALLERY ==================== */}
-      {!activeVideo && (
+      {!activeVideo && !restoringFromUrl && (
         <div>
           {feedLoading ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white py-16 text-center dark:border-slate-800 dark:bg-slate-900">

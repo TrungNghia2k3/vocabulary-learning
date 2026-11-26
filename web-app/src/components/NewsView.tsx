@@ -298,31 +298,30 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
   const [liveSearch, setLiveSearch] = useState<string>(() =>
     getUrlParam('mode') !== 'deep' ? getUrlParam('q') || '' : ''
   );
-  const [selectedLive, setSelectedLive] = useState<LiveFeedItem | null>(null);
+  const initialLiveArticle = useMemo<LiveFeedItem | null>(() => {
+    if (getUrlParam('mode') === 'deep') return null;
+    const articleUrl = getUrlParam('article');
+    if (!articleUrl) return null;
+    return {
+      id: articleUrl,
+      title: getUrlParam('title') || 'Đang tải bài báo...',
+      url: articleUrl,
+      source: getUrlParam('src') || 'News',
+      category: getUrlParam('cat') || 'all',
+      publishedAt: '',
+      summary: '',
+    };
+  }, []);
+  const [selectedLive, setSelectedLive] = useState<LiveFeedItem | null>(() => initialLiveArticle);
   const [liveParagraphs, setLiveParagraphs] = useState<string[]>([]);
   const [liveWordCount, setLiveWordCount] = useState<number>(0);
-  const [liveArticleLoading, setLiveArticleLoading] = useState<boolean>(false);
+  const [liveArticleLoading, setLiveArticleLoading] = useState<boolean>(() =>
+    Boolean(initialLiveArticle)
+  );
   const [liveArticleError, setLiveArticleError] = useState<string | null>(null);
   const [paraTranslations, setParaTranslations] = useState<Record<number, string>>({});
   const [translatingIdx, setTranslatingIdx] = useState<number | null>(null);
-  const pendingLiveArticleRef = useRef<{
-    url: string;
-    title: string;
-    source: string;
-    category: string;
-  } | null>(
-    (() => {
-      if (getUrlParam('mode') === 'deep') return null;
-      const articleUrl = getUrlParam('article');
-      if (!articleUrl) return null;
-      return {
-        url: articleUrl,
-        title: getUrlParam('title') || 'Đang tải bài báo...',
-        source: getUrlParam('src') || 'News',
-        category: getUrlParam('cat') || 'all',
-      };
-    })()
-  );
+  const pendingLiveArticleRef = useRef<LiveFeedItem | null>(initialLiveArticle);
 
   // --- Deep Analyzed Sheet Mode State ---
   const [deepCategory, setDeepCategory] = useState<string>(() =>
@@ -421,15 +420,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
     const pending = pendingLiveArticleRef.current;
     if (!pending) return;
     pendingLiveArticleRef.current = null;
-    openLiveArticle({
-      id: pending.url,
-      title: pending.title,
-      url: pending.url,
-      source: pending.source,
-      category: pending.category,
-      publishedAt: '',
-      summary: '',
-    });
+    openLiveArticle(pending);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Enrich restored live article with image/summary once the live feed arrives
