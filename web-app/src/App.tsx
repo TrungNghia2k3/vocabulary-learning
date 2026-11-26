@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   BookOpen,
@@ -73,16 +73,100 @@ const NAV_TABS: Array<{ id: AppMode; label: string; icon: typeof Home }> = [
   { id: 'collocations', label: 'Collocations', icon: Puzzle },
 ];
 
+const VALID_MODES = new Set<AppMode>(NAV_TABS.map((t) => t.id));
+const TAB_LABEL_BY_ID = new Map<AppMode, string>(NAV_TABS.map((t) => [t.id, t.label]));
+const SESSION_DECK_KEY = 'vocab_studio_selected_deck';
+const SESSION_TOPIC_KEY = 'vocab_studio_selected_topic';
+
+function getPathForMode(mode: AppMode): string {
+  return mode === 'dashboard' ? '/' : `/${mode}`;
+}
+
+function getModeFromLocation(): AppMode {
+  if (typeof window === 'undefined') return 'dashboard';
+  const rawPath = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+  if (rawPath && VALID_MODES.has(rawPath as AppMode)) {
+    return rawPath as AppMode;
+  }
+  const rawHash = window.location.hash.replace(/^#\/?|\/+$/g, '').toLowerCase();
+  if (rawHash && VALID_MODES.has(rawHash as AppMode)) {
+    return rawHash as AppMode;
+  }
+  return 'dashboard';
+}
+
 export default function App() {
   const library = useMemo(() => buildLibrary(), []);
-  const [mode, setMode] = useState<AppMode>('dashboard');
-  const [selectedDeck, setSelectedDeck] = useState<string>('ALL');
-  const [selectedTopic, setSelectedTopic] = useState<string>('ALL');
+  const [mode, setMode] = useState<AppMode>(() => getModeFromLocation());
+  const [selectedDeck, setSelectedDeck] = useState<string>(() => {
+    try {
+      return sessionStorage.getItem(SESSION_DECK_KEY) || 'ALL';
+    } catch {
+      return 'ALL';
+    }
+  });
+  const [selectedTopic, setSelectedTopic] = useState<string>(() => {
+    try {
+      return sessionStorage.getItem(SESSION_TOPIC_KEY) || 'ALL';
+    } catch {
+      return 'ALL';
+    }
+  });
   const [accent, setAccent] = useState<Accent>(() => loadAccent());
   const [darkMode, setDarkMode] = useState<boolean>(() => loadDarkMode());
   const [learnedIds, setLearnedIds] = useState<Set<string>>(() => loadLearnedSet());
   const [highScore, setHighScore] = useState<number>(() => loadHighScore());
   const [streak, setStreak] = useState<number>(() => getStudyStreak());
+
+  // Navigate between tabs while syncing browser URL so F5 / Back / Forward / New Tab all work
+  const handleNavigate = useCallback((nextMode: AppMode) => {
+    setMode(nextMode);
+    if (typeof window !== 'undefined') {
+      const targetPath = getPathForMode(nextMode);
+      const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+      if (currentPath !== targetPath || window.location.hash) {
+        window.history.pushState({ mode: nextMode }, '', targetPath);
+      }
+      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    }
+  }, []);
+
+  // Sync URL on browser Back / Forward and normalize initial unknown/hash URLs
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const expectedPath = getPathForMode(mode);
+    const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+    if (currentPath !== expectedPath || window.location.hash) {
+      window.history.replaceState({ mode }, '', expectedPath);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onPopState = () => {
+      setMode(getModeFromLocation());
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  // Keep page title descriptive for each tab
+  useEffect(() => {
+    const label = TAB_LABEL_BY_ID.get(mode);
+    document.title =
+      mode === 'dashboard' || !label
+        ? 'VocabStudio — Học Từ Vựng Tiếng Anh từ Google Sheets'
+        : `${label} · VocabStudio`;
+  }, [mode]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SESSION_DECK_KEY, selectedDeck);
+      sessionStorage.setItem(SESSION_TOPIC_KEY, selectedTopic);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [selectedDeck, selectedTopic]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
@@ -157,7 +241,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <Navbar
         mode={mode}
-        onNavigate={setMode}
+        onNavigate={handleNavigate}
         accent={accent}
         onAccentChange={handleAccentChange}
         darkMode={darkMode}
@@ -178,10 +262,17 @@ export default function App() {
           {NAV_TABS.map((tab) => {
             const Icon = tab.icon;
             const active = mode === tab.id;
+            const href = getPathForMode(tab.id);
             return (
-              <button
+              <a
                 key={tab.id}
-                onClick={() => setMode(tab.id)}
+                href={href}
+                onClick={(e) => {
+                  if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0) {
+                    e.preventDefault();
+                    handleNavigate(tab.id);
+                  }
+                }}
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                   active
                     ? 'bg-indigo-600 text-white shadow-xs'
@@ -190,7 +281,7 @@ export default function App() {
               >
                 <Icon className="h-3.5 w-3.5" />
                 {tab.label}
-              </button>
+              </a>
             );
           })}
         </div>
@@ -256,7 +347,7 @@ export default function App() {
             availableTopics={availableTopics}
             learnedIds={learnedIds}
             highScore={highScore}
-            onNavigate={setMode}
+            onNavigate={handleNavigate}
           />
         )}
 
