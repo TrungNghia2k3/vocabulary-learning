@@ -60,6 +60,7 @@ interface TranscriptCue {
   dur: number;
   text: string;
   vi?: string;
+  chapter?: string;
 }
 
 interface TranscriptResponse {
@@ -131,9 +132,12 @@ function parseTimeToSeconds(token: string): number {
 }
 
 /**
- * Parse pasted YouTube "Show transcript" text ("0:07\nSentence..."),
- * inline markdown timestamps ("[00:40](https://...) Text"),
- * SRT/VTT subtitles, or plain English paragraphs into interactive synced cues.
+ * Parse pasted YouTube "Show transcript" text:
+ *  - New YouTube accessibility-glued lines ("0:000 secondsFrom BBC...", "1:071 minute, 7 secondsLet's...")
+ *  - Chapter headings ("Chapter 1: Climate talks overview")
+ *  - Standard multi-line YouTube transcript ("0:07\nSentence...")
+ *  - Inline markdown timestamps ("[00:40](https://...) Text")
+ *  - SRT/VTT subtitles or plain English paragraphs
  */
 function parsePastedTranscript(raw: string): TranscriptCue[] {
   // Normalize markdown timestamp links like [00:40](https://youtube.com/...) onto separate lines
@@ -149,11 +153,16 @@ function parsePastedTranscript(raw: string): TranscriptCue[] {
 
   const timeOnlyRe = /^(?:\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d+)?$/;
   const srtRangeRe = /^(\d{1,2}:\d{2}:\d{2}[.,]\d+)\s*-->\s*(\d{1,2}:\d{2}:\d{2}[.,]\d+)/;
+  const ytGluedRe =
+    /^((?:\d{1,2}:)?\d{1,2}:\d{2})(?:\s*(?:\d+\s*(?:hours?|minutes?|seconds?|giờ|phút|giây)(?:,\s*)?)+)\s*(.*)$/i;
   const inlineTimeRe = /^[\[(]?((?:\d{1,2}:)?\d{1,2}:\d{2})[\])]?\s+(.+)$/;
+  const chapterRe = /^(?:chapter|part|section|phần|chương)\s*\d*\s*[:.-]\s*.+/i;
 
   const cues: TranscriptCue[] = [];
   let pendingStart: number | null = null;
-  let pendingDur = 4;
+  let pendingDur = 4.5;
+  let pendingChapter: string | undefined;
+  let nextChapter: string | undefined;
   let buffer: string[] = [];
 
   const flush = (nextStart?: number) => {
@@ -163,7 +172,13 @@ function parsePastedTranscript(raw: string): TranscriptCue[] {
         nextStart !== undefined && nextStart > pendingStart
           ? Math.min(300, Math.max(1.5, nextStart - pendingStart))
           : pendingDur;
-      cues.push({ start: Number(pendingStart.toFixed(2)), dur: Number(dur.toFixed(2)), text });
+      cues.push({
+        start: Number(pendingStart.toFixed(2)),
+        dur: Number(dur.toFixed(2)),
+        text,
+        chapter: pendingChapter,
+      });
+      pendingChapter = undefined;
     }
     buffer = [];
   };
@@ -172,6 +187,12 @@ function parsePastedTranscript(raw: string): TranscriptCue[] {
     if (/^\d+$/.test(line)) continue; // SRT sequence index
     if (/^WEBVTT/i.test(line)) continue;
 
+    // Detect YouTube chapter headings (e.g., "Chapter 1: Climate talks overview")
+    if (chapterRe.test(line)) {
+      nextChapter = line;
+      continue;
+    }
+
     const srtM = line.match(srtRangeRe);
     if (srtM) {
       const start = parseTimeToSeconds(srtM[1]);
@@ -179,6 +200,27 @@ function parsePastedTranscript(raw: string): TranscriptCue[] {
       flush(start);
       pendingStart = start;
       pendingDur = Math.max(1.5, end - start);
+      if (nextChapter) {
+        pendingChapter = nextChapter;
+        nextChapter = undefined;
+      }
+      continue;
+    }
+
+    // YouTube glued accessibility timestamp: "0:066 secondsIn this programme..." or "1:071 minute, 7 secondsLet's..."
+    const gluedM = line.match(ytGluedRe);
+    if (gluedM) {
+      const start = parseTimeToSeconds(gluedM[1]);
+      flush(start);
+      pendingStart = start;
+      pendingDur = 4.5;
+      if (nextChapter) {
+        pendingChapter = nextChapter;
+        nextChapter = undefined;
+      }
+      if (gluedM[2]?.trim()) {
+        buffer.push(gluedM[2].trim());
+      }
       continue;
     }
 
@@ -187,6 +229,10 @@ function parsePastedTranscript(raw: string): TranscriptCue[] {
       flush(start);
       pendingStart = start;
       pendingDur = 4.5;
+      if (nextChapter) {
+        pendingChapter = nextChapter;
+        nextChapter = undefined;
+      }
       continue;
     }
 
@@ -196,7 +242,17 @@ function parsePastedTranscript(raw: string): TranscriptCue[] {
       flush(start);
       pendingStart = start;
       pendingDur = 4.5;
+      if (nextChapter) {
+        pendingChapter = nextChapter;
+        nextChapter = undefined;
+      }
       buffer.push(inlineM[2]);
+      continue;
+    }
+
+    // Standalone heading before any timestamp starts
+    if (pendingStart === null) {
+      nextChapter = line;
       continue;
     }
 
@@ -1723,17 +1779,26 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
                     const isActive = idx === activeCueIdx;
                     const viLine = cueTranslations[idx] || (showOfficialVi ? c.vi : undefined);
                     return (
-                      <div
-                        key={idx}
-                        ref={(el) => {
-                          cueRefs.current[idx] = el;
-                        }}
-                        className={`rounded-xl border p-3 transition ${
-                          isActive
-                            ? 'border-rose-400 bg-rose-50/60 shadow-2xs dark:border-rose-600 dark:bg-rose-950/30'
-                            : 'border-slate-100 bg-slate-50/40 hover:border-slate-200 dark:border-slate-800/80 dark:bg-slate-800/20'
-                        }`}
-                      >
+                      <div key={idx} className="space-y-1.5">
+                        {c.chapter && (
+                          <div className="flex items-center gap-2 pt-2 pb-0.5">
+                            <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                            <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-extrabold text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300">
+                              {c.chapter}
+                            </span>
+                            <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                          </div>
+                        )}
+                        <div
+                          ref={(el) => {
+                            cueRefs.current[idx] = el;
+                          }}
+                          className={`rounded-xl border p-3 transition ${
+                            isActive
+                              ? 'border-rose-400 bg-rose-50/60 shadow-2xs dark:border-rose-600 dark:bg-rose-950/30'
+                              : 'border-slate-100 bg-slate-50/40 hover:border-slate-200 dark:border-slate-800/80 dark:bg-slate-800/20'
+                          }`}
+                        >
                         <div className="flex items-start justify-between gap-2">
                           <button
                             type="button"
@@ -1777,6 +1842,7 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
                             {viLine}
                           </p>
                         )}
+                        </div>
                       </div>
                     );
                   })
