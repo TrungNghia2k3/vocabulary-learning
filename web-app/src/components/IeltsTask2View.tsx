@@ -173,10 +173,10 @@ function getTask2ModelBadge(prompt: IeltsTask2Prompt): string | null {
   return null;
 }
 
-/** Highlights [template slots] like [Topic] or [Argument 1] inline while wrapping cleanly, with optional live TTS word highlight. */
+/** Highlights [template slots] like [Topic] or [Argument 1] inline while wrapping cleanly, with zero-layout-shift live TTS word highlight. */
 function renderHighlightedTemplate(text: string, activeWordIdx?: number | null) {
+  const parts = text.split(/(\[[^\]]*\])/g);
   if (activeWordIdx === null || activeWordIdx === undefined) {
-    const parts = text.split(/(\[[^\]]*\])/g);
     return parts.map((chunk, i) => {
       if (chunk.startsWith('[') && chunk.endsWith(']')) {
         return (
@@ -192,36 +192,55 @@ function renderHighlightedTemplate(text: string, activeWordIdx?: number | null) 
     });
   }
 
-  let inBracket = false;
+  // Keep the exact same DOM structure & padding/weight as idle so active word highlight causes 0px reflow
   let wordIdx = 0;
-  return text.split(/(\s+)/).map((tok, i) => {
-    if (!tok || /^\s+$/.test(tok)) {
-      return <span key={i}>{tok}</span>;
-    }
-    const opens = tok.includes('[');
-    const closes = tok.includes(']');
-    const isTemplate = inBracket || opens;
-    if (opens && !closes) inBracket = true;
-    else if (closes) inBracket = false;
+  let prevEndedWithNonSpace = false;
 
-    const clean = tok.replace(/[[\]]/g, '');
-    const myIdx = clean.length > 0 ? wordIdx++ : -1;
-    const isActive = myIdx === activeWordIdx;
-
-    return (
-      <span
-        key={i}
-        className={`inline rounded-md transition-colors duration-75 ${
-          isActive
-            ? 'bg-amber-300 px-1 font-bold text-slate-950 shadow-2xs ring-2 ring-amber-400/70 dark:bg-amber-400 dark:text-slate-950'
-            : isTemplate
-              ? 'bg-amber-100 px-0.5 font-bold text-amber-900 dark:bg-amber-950/80 dark:text-amber-200'
+  const renderWordsInChunk = (chunk: string, isBracketed: boolean) => {
+    const tokens = chunk.split(/(\s+)/);
+    return tokens.map((tok, j) => {
+      if (!tok) return null;
+      if (/^\s+$/.test(tok)) {
+        prevEndedWithNonSpace = false;
+        return <span key={j}>{tok}</span>;
+      }
+      const clean = tok.replace(/[[\]]/g, '');
+      let myIdx = -1;
+      if (clean.length > 0) {
+        myIdx = prevEndedWithNonSpace ? Math.max(0, wordIdx - 1) : wordIdx++;
+      }
+      prevEndedWithNonSpace = true;
+      const isActive = myIdx === activeWordIdx;
+      return (
+        <span
+          key={j}
+          className={`rounded-[3px] transition-colors duration-75 ${
+            isActive
+              ? isBracketed
+                ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-400/90 dark:bg-amber-400 dark:text-slate-950'
+                : 'bg-amber-300 text-slate-950 ring-2 ring-amber-300/90 dark:bg-amber-400 dark:text-slate-950 dark:ring-amber-400/90'
               : ''
-        }`}
-      >
-        {tok}
-      </span>
-    );
+          }`}
+        >
+          {tok}
+        </span>
+      );
+    });
+  };
+
+  return parts.map((chunk, i) => {
+    if (!chunk) return null;
+    if (chunk.startsWith('[') && chunk.endsWith(']')) {
+      return (
+        <span
+          key={i}
+          className="mx-0.5 inline rounded-md bg-amber-100 px-1.5 py-0.5 font-bold text-amber-900 box-decoration-clone dark:bg-amber-950/80 dark:text-amber-200"
+        >
+          {renderWordsInChunk(chunk, true)}
+        </span>
+      );
+    }
+    return <span key={i}>{renderWordsInChunk(chunk, false)}</span>;
   });
 }
 

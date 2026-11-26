@@ -1211,17 +1211,30 @@ export function BookStudioView({ allVocab, accent }: BookStudioViewProps) {
             myWordIdx >= lookup.wordStartIdx &&
             myWordIdx <= lookup.wordEndIdx;
 
-          if (cleaned.length < 1 && !phraseMode && !isSpokenWord) return <span key={idx}>{tok}</span>;
+          if (cleaned.length < 1 && !phraseMode) {
+            return (
+              <span
+                key={idx}
+                className={
+                  isSpokenWord
+                    ? 'rounded-[3px] bg-amber-300 text-slate-950 ring-2 ring-amber-300/90 transition-colors duration-75 dark:bg-amber-400 dark:text-slate-950 dark:ring-amber-400/90'
+                    : undefined
+                }
+              >
+                {tok}
+              </span>
+            );
+          }
           const matched = highlightKnown ? findSheetMatch(cleaned) : undefined;
 
           let cls =
-            'cursor-pointer rounded px-0.5 transition hover:bg-blue-100/80 hover:text-blue-800 dark:hover:bg-blue-950/70 dark:hover:text-blue-200';
+            'cursor-pointer rounded px-0.5 transition-colors duration-75 hover:bg-blue-100/80 hover:text-blue-800 dark:hover:bg-blue-950/70 dark:hover:text-blue-200';
           if (isSpokenWord) {
-            cls =
-              'cursor-pointer rounded bg-amber-300 px-1 font-bold text-slate-950 shadow-2xs ring-2 ring-amber-400/70 transition-colors duration-75 dark:bg-amber-400 dark:text-slate-950';
+            const weightCls = isInActiveLookup ? 'font-bold' : matched ? 'font-semibold' : '';
+            cls = `cursor-pointer rounded bg-amber-300 px-0.5 ${weightCls} text-slate-950 ring-2 ring-amber-300/90 transition-colors duration-75 dark:bg-amber-400 dark:text-slate-950 dark:ring-amber-400/90`;
           } else if (isAnchor) {
             cls =
-              'cursor-pointer rounded bg-violet-600 px-1 font-bold text-white ring-2 ring-violet-300 transition';
+              'cursor-pointer rounded bg-violet-600 px-0.5 font-bold text-white ring-2 ring-violet-300 transition-colors';
           } else if (isInActiveLookup) {
             cls =
               'cursor-pointer rounded bg-violet-100 px-0.5 font-bold text-violet-900 underline decoration-violet-400 underline-offset-4 dark:bg-violet-900/70 dark:text-violet-100';

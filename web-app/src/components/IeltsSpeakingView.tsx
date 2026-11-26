@@ -1122,9 +1122,9 @@ export function IeltsSpeakingView({ items, accent }: IeltsSpeakingViewProps) {
                                   return (
                                     <span
                                       key={tIdx}
-                                      className={`rounded-md transition-colors duration-75 ${
+                                      className={`rounded-[3px] transition-colors duration-75 ${
                                         isSpoken
-                                          ? 'bg-amber-300 px-1 font-bold text-slate-950 shadow-2xs ring-2 ring-amber-400/70 dark:bg-amber-400 dark:text-slate-950'
+                                          ? 'bg-amber-300 text-slate-950 ring-2 ring-amber-300/90 dark:bg-amber-400 dark:text-slate-950 dark:ring-amber-400/90'
                                           : ''
                                       }`}
                                     >
