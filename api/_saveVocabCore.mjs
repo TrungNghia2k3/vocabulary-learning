@@ -1,6 +1,5 @@
-// Shared server-side proxy for saving News Studio vocabulary & article links directly
-// to Google Sheets via the user's Google Apps Script Web App URL.
-// Avoids browser CORS/redirect issues and supports NEWS_SHEET_WEBHOOK_URL env var.
+// Shared server-side proxy for VocabStudio Apps Script Webhook
+// Supports News Studio (News Vocab + News) AND Book Studio (Book Vocab + Google Drive PDF + Bookshelf)
 
 const ALLOWED_APPS_SCRIPT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(?:\?.*)?$/;
 
@@ -18,7 +17,7 @@ export async function forwardToGoogleSheet(body = {}) {
 
   if (!targetUrl) {
     throw new Error(
-      'Chưa cấu hình URL Google Apps Script. Hãy mở mục "Kết nối Google Sheets" trong News Studio để dán URL Web App (/exec).'
+      'Chưa cấu hình URL Google Apps Script. Hãy mở mục "Kết nối Sheet & Drive" để dán URL Web App (/exec).'
     );
   }
   if (!ALLOWED_APPS_SCRIPT_RE.test(targetUrl)) {
@@ -35,6 +34,7 @@ export async function forwardToGoogleSheet(body = {}) {
   const forwardPayload = {
     action: body.action || 'save_vocab',
     secret,
+    targetSheet: body.targetSheet,
     entry: body.entry,
     entries: body.entries,
     url: body.url,
@@ -43,6 +43,12 @@ export async function forwardToGoogleSheet(body = {}) {
     category: body.category,
     publishedDate: body.publishedDate,
     imageUrl: body.imageUrl,
+    fileId: body.fileId,
+    offset: body.offset,
+    chunkSize: body.chunkSize,
+    currentPage: body.currentPage,
+    totalPages: body.totalPages,
+    bookmarks: body.bookmarks,
   };
 
   const res = await fetch(targetUrl, {
@@ -53,7 +59,7 @@ export async function forwardToGoogleSheet(body = {}) {
     },
     redirect: 'follow',
     body: JSON.stringify(forwardPayload),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(25000),
   });
 
   const text = await res.text();

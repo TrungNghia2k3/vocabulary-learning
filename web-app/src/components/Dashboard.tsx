@@ -168,6 +168,13 @@ export function Dashboard({
       subtitle: 'Tin mới The Guardian & NPR chạm tra từ tại chỗ + bài phân tích sâu IELTS',
     },
     {
+      mode: 'books',
+      title: 'Book Studio (Đọc sách PDF)',
+      count: library.vocab.filter((v) => v.deck === 'Book Vocab').length,
+      icon: BookOpen,
+      subtitle: 'Đọc sách PDF đồng bộ Google Drive, chạm tra từ, nghe đọc & lưu thẳng Sheet',
+    },
+    {
       mode: 'prepositions',
       title: 'Giới từ (Prepositions)',
       count: library.prepositions.length,

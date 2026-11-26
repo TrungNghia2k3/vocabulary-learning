@@ -57,6 +57,10 @@ Mở trình duyệt tại `http://localhost:5173`. Mỗi khi bạn chỉnh sửa
   - Tab **News Studio (`Đọc báo`)** hỗ trợ 2 chế độ: **Tin mới hôm nay (Live)** (lấy tin mới nhất từ *The Guardian* & *NPR*, tự tô sáng từ vựng đã học trong Google Sheets, chạm tra từ + dịch + nghe phát âm) và **Bài phân tích sâu (`News` sheet)**.
   - **Lưu từ 1-click nhảy thẳng vào Google Sheets (`News Vocab`):** Triển khai file `apps-script/news-vocab-webhook.gs` trong Google Sheets (*Extensions → Apps Script → Deploy → Web app*), sau đó dán URL (`/exec`) vào mục **Kết nối Sheet** trên News Studio (hoặc cấu hình biến môi trường `NEWS_SHEET_WEBHOOK_URL` trên Vercel/Netlify để mọi thiết bị dùng luôn). Khi bấm lưu, từ vựng tự nhảy thẳng vào tab `News Vocab` (chống trùng lặp) và bạn cũng có thể bấm **Gửi vào sheet News** để đẩy link bài báo thẳng vào tab `News` (`Status = Pending`).
   - Để phân tích sâu bài báo trong tab `News`, chỉ cần nhắn **"Kiểm tra thay đổi / status"**. AI sẽ điền tóm tắt, dịch song ngữ từng đoạn, kho từ vựng/collocation Band 7.0–8.5 và bộ câu hỏi đọc hiểu IELTS (TFNG & MCQ).
+- **Book Studio (`Đọc sách PDF`) + Google Drive (`VocabStudio Books`) + Sheet `Book Vocab` & `Bookshelf`:**
+  - Thả các file PDF sách tiếng Anh vào thư mục Google Drive **`VocabStudio Books`** (hoặc chọn mở file `.pdf` trực tiếp từ máy tính/điện thoại).
+  - Hỗ trợ **Chế độ Học (Smart Reflow Reader)** (tự tách đoạn sạch sẽ, chỉnh cỡ chữ, tự tô sáng từ đã học trong Google Sheets, chạm tra từ + dịch nhanh từng đoạn + nghe đọc sách UK/US) và **Chế độ PDF gốc** (render trang nguyên bản kèm hình ảnh/biểu đồ).
+  - Dùng chung **Google Apps Script Webhook** (`apps-script/news-vocab-webhook.gs`): bấm lưu từ 1-click nhảy thẳng vào tab **`Book Vocab`** (nhóm theo tên sách ở cột `Topic` để ôn bằng Flashcard/Quiz), đồng thời tự động đồng bộ **trang đang đọc & Bookmark** qua tab **`Bookshelf`** giữa Máy tính và Điện thoại.
 
 ### 3. Khi tạo một Sheet (Tab) mới hoàn toàn
 1. Bấm dấu **`+`** tạo tab mới trên Google Sheet.

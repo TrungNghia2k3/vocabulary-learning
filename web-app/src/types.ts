@@ -17,7 +17,8 @@ export type AppMode =
   | 'ielts-task2'
   | 'ielts-speaking'
   | 'lyrics'
-  | 'news';
+  | 'news'
+  | 'books';
 
 export interface WordPair {
   word: string;

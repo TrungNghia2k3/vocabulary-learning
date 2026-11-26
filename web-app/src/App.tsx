@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
+  BookOpen,
   Brain,
   CalendarDays,
   Camera,
@@ -33,6 +34,7 @@ import { IeltsTask2View } from './components/IeltsTask2View';
 import { IeltsSpeakingView } from './components/IeltsSpeakingView';
 import { LyricsView } from './components/LyricsView';
 import { NewsView } from './components/NewsView';
+import { BookStudioView } from './components/BookStudioView';
 import type { Accent, AppMode } from './types';
 import {
   getStudyStreak,
@@ -61,6 +63,7 @@ const NAV_TABS: Array<{ id: AppMode; label: string; icon: typeof Home }> = [
   { id: 'ielts-speaking', label: 'IELTS Speaking', icon: Mic },
   { id: 'lyrics', label: 'Lyrics', icon: Music },
   { id: 'news', label: 'Đọc báo', icon: Newspaper },
+  { id: 'books', label: 'Đọc sách PDF', icon: BookOpen },
   { id: 'prepositions', label: 'Giới từ', icon: Link2 },
   { id: 'phrasal-verbs', label: 'Phrasal Verbs', icon: GitBranch },
   { id: 'idioms', label: 'Idioms', icon: MessageSquareQuote },
@@ -202,6 +205,7 @@ export default function App() {
           'ielts-speaking',
           'lyrics',
           'news',
+          'books',
         ].includes(mode) &&
         selectedDeck !== 'ALL' &&
         availableTopics.length > 1 && (
@@ -351,6 +355,8 @@ export default function App() {
         {mode === 'news' && (
           <NewsView articles={library.news} allVocab={library.vocab} accent={accent} />
         )}
+
+        {mode === 'books' && <BookStudioView allVocab={library.vocab} accent={accent} />}
 
         {(mode === 'prepositions' ||
           mode === 'phrasal-verbs' ||

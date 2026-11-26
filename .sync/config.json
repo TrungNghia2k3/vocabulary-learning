@@ -27,6 +27,8 @@
     "IELTS Speaking": "IELTS Speaking.csv",
     "Lyrics": "Lyrics.csv",
     "News": "News.csv",
-    "News Vocab": "News Vocab.csv"
+    "News Vocab": "News Vocab.csv",
+    "Book Vocab": "Book Vocab.csv",
+    "Bookshelf": "Bookshelf.csv"
   }
 }

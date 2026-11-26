@@ -1559,7 +1559,7 @@ function parseNewsSheet(rows: string[][]): NewsArticleItem[] {
   return out;
 }
 
-const SKIP_SHEETS = new Set(['Template']);
+const SKIP_SHEETS = new Set(['Template', 'Bookshelf']);
 
 export function buildLibrary(): ParsedLibrary {
   const vocab: VocabItem[] = [];
@@ -1590,6 +1590,7 @@ export function buildLibrary(): ParsedLibrary {
     'Lyrics',
     'News',
     'News Vocab',
+    'Book Vocab',
     'Adjective',
     'Verb',
     'Adjective Practice',
