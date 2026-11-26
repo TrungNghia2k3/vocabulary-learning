@@ -15,6 +15,8 @@ import {
   Languages,
   Link2,
   Loader2,
+  Maximize2,
+  Minimize2,
   Play,
   RefreshCw,
   Repeat,
@@ -545,6 +547,7 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
   const [loopActiveCue, setLoopActiveCue] = useState<boolean>(false);
   const [blurSubs, setBlurSubs] = useState<boolean>(false);
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
+  const [theaterMode, setTheaterMode] = useState<boolean>(true);
   const [showOfficialVi, setShowOfficialVi] = useState<boolean>(true);
   const [cueTranslations, setCueTranslations] = useState<Record<number, string>>({});
   const [translatingCueIdx, setTranslatingCueIdx] = useState<number | null>(null);
@@ -1652,6 +1655,32 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
             <div className="flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
+                onClick={() => setTheaterMode((t) => !t)}
+                className={`hidden items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-bold transition lg:inline-flex ${
+                  theaterMode
+                    ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                }`}
+                title={
+                  theaterMode
+                    ? 'Đang mở màn hình lớn toàn chiều ngang — bấm để chuyển sang chia 2 cột'
+                    : 'Đang chia 2 cột — bấm để phóng to video ra toàn chiều ngang'
+                }
+              >
+                {theaterMode ? (
+                  <>
+                    <Minimize2 className="h-3.5 w-3.5" />
+                    <span>Chia 2 cột</span>
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="h-3.5 w-3.5" />
+                    <span>Màn hình lớn</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
                 onClick={() => setSavedDrawerOpen((o) => !o)}
                 className={`inline-flex items-center gap-1 rounded-xl border px-2 py-1.5 text-xs font-bold lg:hidden ${
                   savedDrawerOpen
@@ -1675,14 +1704,28 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
             </div>
           </div>
 
-          {/* Main Split Workspace: Single-Screen Stacked on Mobile, Side-by-Side on Desktop */}
-          <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-12 lg:gap-4">
-            {/* Left/Top Column: Video Player + Compact Shadowing Controls */}
-            <div className="space-y-2 lg:sticky lg:top-20 lg:col-span-6 lg:space-y-3 lg:self-start">
+          {/* Main Workspace: Wide Theater Mode (default, full width across both sides) or Split 2-Column */}
+          <div
+            className={
+              theaterMode
+                ? 'space-y-3'
+                : 'grid grid-cols-1 gap-2.5 lg:grid-cols-12 lg:gap-4'
+            }
+          >
+            {/* Video Player + Compact Shadowing Controls */}
+            <div
+              className={
+                theaterMode
+                  ? 'space-y-2.5'
+                  : 'space-y-2 lg:sticky lg:top-20 lg:col-span-6 lg:space-y-3 lg:self-start'
+              }
+            >
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-sm dark:border-slate-800">
                 <div
                   ref={playerHostRef}
-                  className="aspect-video w-full [&>iframe]:h-full [&>iframe]:w-full"
+                  className={`aspect-video w-full [&>iframe]:h-full [&>iframe]:w-full ${
+                    theaterMode ? 'max-h-[70vh]' : ''
+                  }`}
                 />
               </div>
 
@@ -1852,8 +1895,12 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
               </form>
             </div>
 
-            {/* Right Column: Interactive Synced Transcript */}
-            <div className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-xs lg:col-span-6 dark:border-slate-800 dark:bg-slate-900">
+            {/* Interactive Synced Transcript */}
+            <div
+              className={`flex flex-col rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900 ${
+                theaterMode ? 'w-full' : 'lg:col-span-6'
+              }`}
+            >
               {/* Transcript Controls */}
               <div className="space-y-2 border-b border-slate-100 p-3 dark:border-slate-800">
                 <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto pb-0.5">
@@ -2053,7 +2100,11 @@ export function VideoStudioView({ allVocab, accent }: VideoStudioViewProps) {
               {/* Transcript Cues Scroll List (strictly self-contained internal scroll!) */}
               <div
                 ref={transcriptScrollRef}
-                className="h-[40dvh] space-y-2 overflow-y-auto overscroll-contain p-2.5 sm:h-[46dvh] lg:h-[64vh] lg:p-3"
+                className={`space-y-2 overflow-y-auto overscroll-contain p-2.5 lg:p-3 ${
+                  theaterMode
+                    ? 'h-[40dvh] sm:h-[44dvh] lg:h-[46vh]'
+                    : 'h-[40dvh] sm:h-[46dvh] lg:h-[64vh]'
+                }`}
               >
                 {transcriptLoading ? (
                   <div className="flex items-center justify-center gap-2 py-14 text-sm text-slate-500">

@@ -13,7 +13,9 @@ import {
   Flame,
   Keyboard,
   LayoutGrid,
+  Maximize2,
   MessageSquareQuote,
+  Minimize2,
   Music,
   Search,
   Sparkles,
@@ -61,6 +63,7 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
   const [tab, setTab] = useState<LyricsTab>('breakdown');
   const [showTranslations, setShowTranslations] = useState(true);
   const [showNotes, setShowNotes] = useState(true);
+  const [widePlayer, setWidePlayer] = useState(false);
   const [lyricSearch, setLyricSearch] = useState('');
 
   const albums = useMemo(() => {
@@ -522,13 +525,25 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
         )}
       </div>
 
-      {/* Main Split-Screen Song Workspace */}
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        {/* LEFT: Sticky YouTube Player + Context & Story */}
-        <div className="space-y-4 lg:sticky lg:top-20 lg:col-span-5">
+      {/* Main Song Workspace (Split or Wide Full-Width YouTube Player) */}
+      <div
+        className={
+          widePlayer
+            ? 'space-y-5'
+            : 'grid grid-cols-1 items-start gap-6 lg:grid-cols-12'
+        }
+      >
+        {/* YouTube Player + Context & Story */}
+        <div
+          className={
+            widePlayer
+              ? 'space-y-4'
+              : 'space-y-4 lg:sticky lg:top-20 lg:col-span-5'
+          }
+        >
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
             {activeSong.videoId ? (
-              <div className="aspect-video w-full bg-black">
+              <div className={`aspect-video w-full bg-black ${widePlayer ? 'max-h-[68vh]' : ''}`}>
                 <iframe
                   key={activeSong.videoId}
                   src={`https://www.youtube.com/embed/${activeSong.videoId}`}
@@ -555,16 +570,34 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
                     {activeSong.artist}
                   </p>
                 </div>
-                {activeSong.youtubeUrl && (
-                  <a
-                    href={activeSong.youtubeUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300"
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setWidePlayer((w) => !w)}
+                    className="hidden items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 lg:inline-flex dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    title={widePlayer ? 'Thu gọn về cột trái' : 'Phóng to video ra toàn chiều ngang'}
                   >
-                    <ExternalLink className="h-3.5 w-3.5" /> YT Music
-                  </a>
-                )}
+                    {widePlayer ? (
+                      <>
+                        <Minimize2 className="h-3.5 w-3.5" /> 2 cột
+                      </>
+                    ) : (
+                      <>
+                        <Maximize2 className="h-3.5 w-3.5" /> Phóng to
+                      </>
+                    )}
+                  </button>
+                  {activeSong.youtubeUrl && (
+                    <a
+                      href={activeSong.youtubeUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" /> YT Music
+                    </a>
+                  )}
+                </div>
               </div>
 
               {activeSong.genreVibe && (
@@ -595,8 +628,8 @@ export function LyricsView({ songs, accent }: LyricsViewProps) {
           </div>
         </div>
 
-        {/* RIGHT: 3-Tab Breakdown / Slang / Typing Studio */}
-        <div className="space-y-4 lg:col-span-7">
+        {/* 3-Tab Breakdown / Slang / Typing Studio */}
+        <div className={`space-y-4 ${widePlayer ? 'w-full' : 'lg:col-span-7'}`}>
           {activeSong.status === 'Pending' && activeSong.sections.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50/50 p-8 text-center dark:border-amber-800 dark:bg-amber-950/20">
               <Clock className="mx-auto h-8 w-8 text-amber-500" />
