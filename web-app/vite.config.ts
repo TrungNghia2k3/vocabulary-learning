@@ -94,6 +94,42 @@ function vocabSheetsPlugin(): Plugin {
           );
         }
       });
+
+      // Dev middleware for /api/save-vocab (1-click Google Sheets Apps Script webhook proxy)
+      server.middlewares.use('/api/save-vocab', async (req, res) => {
+        try {
+          // @ts-expect-error runtime ESM import from repo root api helper
+          const core = await import('../api/_saveVocabCore.mjs');
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          if (req.method === 'GET') {
+            res.statusCode = 200;
+            res.end(JSON.stringify(core.getServerWebhookInfo()));
+            return;
+          }
+          if (req.method !== 'POST') {
+            res.statusCode = 405;
+            res.end(JSON.stringify({ ok: false, error: 'Method not allowed' }));
+            return;
+          }
+          const chunks: Buffer[] = [];
+          for await (const chunk of req) {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+          }
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+          const result = await core.forwardToGoogleSheet(body);
+          res.statusCode = 200;
+          res.end(JSON.stringify(result));
+        } catch (err) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(
+            JSON.stringify({
+              ok: false,
+              error: err instanceof Error ? err.message : 'Save Vocab API error',
+            })
+          );
+        }
+      });
     },
   };
 }

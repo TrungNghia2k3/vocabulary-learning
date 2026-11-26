@@ -10,6 +10,8 @@ import {
   ChevronRight,
   ChevronUp,
   Clock,
+  Cloud,
+  CloudOff,
   Copy,
   ExternalLink,
   Eye,
@@ -25,6 +27,8 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  Send,
+  Settings2,
   Sparkles,
   Square,
   Trash2,
@@ -34,6 +38,7 @@ import {
 } from 'lucide-react';
 import type { Accent, NewsArticleItem, VocabItem } from '../types';
 import { speakText, stopSpeaking } from '../utils/speech';
+import { APPS_SCRIPT_WEBHOOK_CODE } from '../utils/appsScriptTemplate';
 
 interface NewsViewProps {
   articles: NewsArticleItem[];
@@ -70,14 +75,20 @@ interface LookupResult {
 
 interface SavedNewsWord {
   word: string;
+  partOfSpeech?: string;
   phonetic?: string;
   meaning: string;
   context: string;
+  topic?: string;
   articleTitle: string;
   savedAt: string;
+  syncStatus?: 'synced' | 'syncing' | 'local' | 'error';
+  syncError?: string;
 }
 
 const SAVED_WORDS_KEY = 'vocabStudio:newsSavedWords:v1';
+const WEBHOOK_URL_KEY = 'vocabStudio:newsWebhookUrl:v1';
+const WEBHOOK_SECRET_KEY = 'vocabStudio:newsWebhookSecret:v1';
 
 const LIVE_CATEGORIES = [
   { id: 'all', label: 'Tất cả' },
@@ -216,6 +227,47 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
   const [savedDrawerOpen, setSavedDrawerOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  // --- Direct Google Sheets Apps Script Webhook State ---
+  const [webhookUrl, setWebhookUrl] = useState<string>(() => {
+    try {
+      return localStorage.getItem(WEBHOOK_URL_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+  const [webhookSecret, setWebhookSecret] = useState<string>(() => {
+    try {
+      return localStorage.getItem(WEBHOOK_SECRET_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+  const [serverWebhookConfigured, setServerWebhookConfigured] = useState<boolean>(false);
+  const [sheetSetupOpen, setSheetSetupOpen] = useState<boolean>(false);
+  const [sheetTestState, setSheetTestState] = useState<{
+    status: 'idle' | 'testing' | 'ok' | 'error';
+    message?: string;
+  }>({ status: 'idle' });
+  const [batchSyncing, setBatchSyncing] = useState<boolean>(false);
+  const [sendArticleState, setSendArticleState] = useState<
+    'idle' | 'sending' | 'sent' | 'duplicate' | 'error'
+  >('idle');
+  const [sendArticleMsg, setSendArticleMsg] = useState<string>('');
+
+  const isSheetConnected = serverWebhookConfigured || Boolean(webhookUrl.trim());
+
+  // Check if server-side NEWS_SHEET_WEBHOOK_URL is configured (Vercel / Netlify env var)
+  useEffect(() => {
+    fetch('/api/save-vocab')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && d.serverConfigured) {
+          setServerWebhookConfigured(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // --- Live News Mode State ---
   const [liveCategory, setLiveCategory] = useState<string>('all');
   const [liveArticles, setLiveArticles] = useState<LiveFeedItem[]>([]);
@@ -284,6 +336,8 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
     setLiveArticleError(null);
     setParaTranslations({});
     setLookup(null);
+    setSendArticleState('idle');
+    setSendArticleMsg('');
     setLiveArticleLoading(true);
     try {
       const res = await fetch(`/api/news?articleUrl=${encodeURIComponent(item.url)}`);
@@ -422,16 +476,93 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
     }
   };
 
-  const handleSaveWord = (titleContext: string) => {
+  const saveWebhookConfig = (nextUrl: string, nextSecret: string) => {
+    const cleanUrl = nextUrl.trim();
+    const cleanSecret = nextSecret.trim();
+    setWebhookUrl(cleanUrl);
+    setWebhookSecret(cleanSecret);
+    try {
+      if (cleanUrl) localStorage.setItem(WEBHOOK_URL_KEY, cleanUrl);
+      else localStorage.removeItem(WEBHOOK_URL_KEY);
+      if (cleanSecret) localStorage.setItem(WEBHOOK_SECRET_KEY, cleanSecret);
+      else localStorage.removeItem(WEBHOOK_SECRET_KEY);
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
+  const handleTestSheetConnection = async () => {
+    saveWebhookConfig(webhookUrl, webhookSecret);
+    setSheetTestState({ status: 'testing', message: 'Đang kiểm tra kết nối tới Google Sheets...' });
+    try {
+      const res = await fetch('/api/save-vocab', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ping',
+          webhookUrl: webhookUrl.trim() || undefined,
+          secret: webhookSecret.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+      setSheetTestState({
+        status: 'ok',
+        message: `Kết nối thành công tới file “${data.spreadsheetName || 'Vocabulary'}” → tab “${data.sheetName || 'News Vocab'}”!`,
+      });
+    } catch (err) {
+      setSheetTestState({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Không kết nối được tới Apps Script.',
+      });
+    }
+  };
+
+  const pushEntriesToGoogleSheet = async (entries: SavedNewsWord[]) => {
+    const res = await fetch('/api/save-vocab', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'save_vocab',
+        webhookUrl: webhookUrl.trim() || undefined,
+        secret: webhookSecret.trim() || undefined,
+        entries: entries.map((e) => ({
+          word: e.word,
+          partOfSpeech: e.partOfSpeech || '',
+          phonetic: e.phonetic || '',
+          meaning: e.meaning || '',
+          example: e.context || '',
+          topic: e.topic || 'News',
+          cambridgeUrl: `https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(e.word.toLowerCase())}`,
+          sourceArticle: e.articleTitle || '',
+          savedDate: e.savedAt.slice(0, 10),
+        })),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      throw new Error(data?.error || `HTTP ${res.status}`);
+    }
+    return data;
+  };
+
+  const handleSaveWord = async (titleContext: string, topicContext: string) => {
     if (!lookup) return;
     const entry: SavedNewsWord = {
       word: lookup.cleaned,
+      partOfSpeech: lookup.partOfSpeech,
       phonetic: lookup.phonetic,
       meaning: lookup.viMeaning || lookup.sheetMatch?.meaning || lookup.definitions[0]?.def || '',
       context: lookup.contextSentence.slice(0, 220),
+      topic: topicContext || 'News',
       articleTitle: titleContext,
       savedAt: new Date().toISOString(),
+      syncStatus: isSheetConnected ? 'syncing' : 'local',
+      syncError: undefined,
     };
+
     setSavedWords((prev) => {
       const exists = prev.some((w) => w.word.toLowerCase() === entry.word.toLowerCase());
       const next = exists
@@ -440,6 +571,97 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
       persistSavedNewsWords(next);
       return next;
     });
+
+    if (!isSheetConnected) return;
+
+    try {
+      await pushEntriesToGoogleSheet([entry]);
+      setSavedWords((prev) => {
+        const next = prev.map((w) =>
+          w.word.toLowerCase() === entry.word.toLowerCase()
+            ? { ...w, syncStatus: 'synced' as const, syncError: undefined }
+            : w
+        );
+        persistSavedNewsWords(next);
+        return next;
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Lỗi gửi lên Google Sheets';
+      setSavedWords((prev) => {
+        const next = prev.map((w) =>
+          w.word.toLowerCase() === entry.word.toLowerCase()
+            ? { ...w, syncStatus: 'error' as const, syncError: msg }
+            : w
+        );
+        persistSavedNewsWords(next);
+        return next;
+      });
+    }
+  };
+
+  const handleSyncAllLocalWords = async () => {
+    const unsynced = savedWords.filter((w) => w.syncStatus !== 'synced');
+    if (unsynced.length === 0 || !isSheetConnected) return;
+    setBatchSyncing(true);
+    try {
+      await pushEntriesToGoogleSheet(unsynced);
+      const syncedSet = new Set(unsynced.map((u) => u.word.toLowerCase()));
+      setSavedWords((prev) => {
+        const next = prev.map((w) =>
+          syncedSet.has(w.word.toLowerCase())
+            ? { ...w, syncStatus: 'synced' as const, syncError: undefined }
+            : w
+        );
+        persistSavedNewsWords(next);
+        return next;
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Không đẩy được lên Google Sheets.';
+      setSheetTestState({ status: 'error', message: msg });
+      setSheetSetupOpen(true);
+    } finally {
+      setBatchSyncing(false);
+    }
+  };
+
+  const handleSendArticleToNewsSheet = async (article: LiveFeedItem) => {
+    if (!isSheetConnected) {
+      setSheetSetupOpen(true);
+      return;
+    }
+    setSendArticleState('sending');
+    setSendArticleMsg('');
+    try {
+      const res = await fetch('/api/save-vocab', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_news_url',
+          webhookUrl: webhookUrl.trim() || undefined,
+          secret: webhookSecret.trim() || undefined,
+          url: article.url,
+          title: article.title,
+          source: article.source,
+          category: article.category,
+          publishedDate: article.publishedAt.slice(0, 10),
+          imageUrl: article.imageUrl || '',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+      if (data.status === 'duplicate') {
+        setSendArticleState('duplicate');
+        setSendArticleMsg('Bài này đã có sẵn trong sheet News.');
+      } else {
+        setSendArticleState('sent');
+        setSendArticleMsg(`Đã thêm vào sheet News (dòng ${data.row}) với Status = Pending!`);
+      }
+    } catch (err) {
+      setSendArticleState('error');
+      setSendArticleMsg(err instanceof Error ? err.message : 'Không gửi được bài lên sheet News.');
+    }
   };
 
   const handleDeleteSavedWord = (word: string) => {
@@ -599,6 +821,12 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
 
   const currentArticleTitle =
     studioMode === 'live' ? selectedLive?.title || 'Tin mới' : activeDeep?.title || 'Sheet News';
+  const currentArticleTopic =
+    studioMode === 'live' ? selectedLive?.category || 'News' : activeDeep?.category || 'News';
+  const unsyncedCount = savedWords.filter((w) => w.syncStatus !== 'synced').length;
+  const activeSavedEntry = lookup
+    ? savedWords.find((w) => w.word.toLowerCase() === lookup.cleaned.toLowerCase())
+    : undefined;
 
   return (
     <div className="space-y-4">
@@ -621,19 +849,37 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
               </div>
             </div>
 
-            {/* Saved Words Drawer Button on mobile top-right */}
-            <button
-              type="button"
-              onClick={() => setSavedDrawerOpen((o) => !o)}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-bold transition sm:hidden ${
-                savedDrawerOpen
-                  ? 'border-teal-500 bg-teal-600 text-white'
-                  : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
-              }`}
-            >
-              <BookMarked className="h-3.5 w-3.5" />
-              <span>{savedWords.length}</span>
-            </button>
+            {/* Mobile top-right buttons: Sheet Sync + Saved Words */}
+            <div className="flex shrink-0 items-center gap-1.5 sm:hidden">
+              <button
+                type="button"
+                onClick={() => setSheetSetupOpen((o) => !o)}
+                className={`inline-flex items-center gap-1 rounded-xl border px-2 py-1.5 text-xs font-bold transition ${
+                  isSheetConnected
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                    : 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                }`}
+                title="Kết nối Google Sheets lưu từ 1-click"
+              >
+                {isSheetConnected ? (
+                  <Cloud className="h-3.5 w-3.5" />
+                ) : (
+                  <CloudOff className="h-3.5 w-3.5" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSavedDrawerOpen((o) => !o)}
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-bold transition ${
+                  savedDrawerOpen
+                    ? 'border-teal-500 bg-teal-600 text-white'
+                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                }`}
+              >
+                <BookMarked className="h-3.5 w-3.5" />
+                <span>{savedWords.length}</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -674,6 +920,28 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
 
             <button
               type="button"
+              onClick={() => setSheetSetupOpen((o) => !o)}
+              className={`hidden shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition sm:inline-flex ${
+                isSheetConnected
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                  : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
+              }`}
+            >
+              {isSheetConnected ? (
+                <>
+                  <Cloud className="h-3.5 w-3.5" />
+                  <span>Đã kết nối Sheet</span>
+                </>
+              ) : (
+                <>
+                  <Settings2 className="h-3.5 w-3.5" />
+                  <span>Kết nối Sheet</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
               onClick={() => setSavedDrawerOpen((o) => !o)}
               className={`hidden shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition sm:inline-flex ${
                 savedDrawerOpen
@@ -682,7 +950,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
               }`}
             >
               <BookMarked className="h-3.5 w-3.5" />
-              <span>Sổ từ báo chí ({savedWords.length})</span>
+              <span>Sổ từ ({savedWords.length})</span>
             </button>
           </div>
         </div>
@@ -873,6 +1141,147 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
         )}
       </div>
 
+      {/* Collapsible Google Sheets 1-Click Webhook Setup Panel */}
+      {sheetSetupOpen && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-xs dark:border-emerald-900/60 dark:bg-emerald-950/20">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h3 className="flex items-center gap-1.5 text-sm font-extrabold text-emerald-900 dark:text-emerald-200">
+                <Cloud className="h-4 w-4 text-emerald-600" />
+                Lưu thẳng vào Google Sheets (1-Click qua Apps Script)
+              </h3>
+              <p className="mt-0.5 text-xs text-emerald-800/80 dark:text-emerald-300/80">
+                Khi đã kết nối, mỗi lần bấm <strong>+ Lưu vào Google Sheets</strong> từ sẽ nhảy thẳng vào tab{' '}
+                <code>News Vocab</code> (kèm phiên âm, nghĩa, câu ví dụ & link Cambridge) — không cần copy-paste!
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSheetSetupOpen(false)}
+              className="rounded-lg p-1 text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {serverWebhookConfigured && !webhookUrl.trim() && (
+            <div className="mt-3 rounded-xl border border-emerald-300 bg-white/90 px-3 py-2 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-300">
+              ✓ Đã cấu hình sẵn trên máy chủ (<code>NEWS_SHEET_WEBHOOK_URL</code>) — mọi thiết bị của bạn đều tự động lưu thẳng lên Google Sheets!
+            </div>
+          )}
+
+          <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <div className="rounded-xl border border-emerald-200/80 bg-white p-3.5 text-xs leading-relaxed text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-extrabold text-slate-900 dark:text-white">
+                  Cài đặt 1 lần duy nhất (~1 phút):
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleCopyText('apps-script', APPS_SCRIPT_WEBHOOK_CODE)}
+                  className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-slate-700 dark:bg-emerald-600"
+                >
+                  {copiedKey === 'apps-script' ? (
+                    <>
+                      <Check className="h-3 w-3" /> Đã chép code!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3" /> Sao chép mã Apps Script
+                    </>
+                  )}
+                </button>
+              </div>
+              <ol className="mt-2 list-decimal space-y-1 pl-4">
+                <li>
+                  Mở Google Sheets <strong>Vocabulary</strong> → chọn{' '}
+                  <strong>Tiện ích mở rộng (Extensions) → Apps Script</strong>.
+                </li>
+                <li>Xóa code mặc định, dán mã vừa sao chép vào rồi bấm Lưu (<code>Ctrl+S</code>).</li>
+                <li>
+                  Bấm <strong>Triển khai (Deploy) → Tùy chọn triển khai mới → Ứng dụng web (Web app)</strong>:
+                  chọn thực thi là <strong>Tôi (Me)</strong> và quyền truy cập là{' '}
+                  <strong>Bất kỳ ai (Anyone)</strong> → bấm <strong>Triển khai</strong> & cấp quyền.
+                </li>
+                <li>
+                  Sao chép <strong>URL Ứng dụng web</strong> (kết thúc bằng <code>/exec</code>) dán sang ô bên cạnh.
+                  *(Mẹo: dán thêm URL này vào biến <code>NEWS_SHEET_WEBHOOK_URL</code> trên Vercel/Netlify để điện thoại cũng tự kết nối sẵn!)*
+                </li>
+              </ol>
+            </div>
+
+            <div className="space-y-2.5 rounded-xl border border-emerald-200/80 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  Google Apps Script Web App URL (/exec)
+                </label>
+                <input
+                  type="url"
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  placeholder="https://script.google.com/macros/s/.../exec"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  Mã bảo mật Secret (tùy chọn — khớp với SECRET_TOKEN trong script)
+                </label>
+                <input
+                  type="password"
+                  value={webhookSecret}
+                  onChange={(e) => setWebhookSecret(e.target.value)}
+                  placeholder="Để trống nếu không đặt SECRET_TOKEN"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleTestSheetConnection}
+                  disabled={sheetTestState.status === 'testing'}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {sheetTestState.status === 'testing' ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  )}
+                  <span>Kiểm tra & Lưu kết nối</span>
+                </button>
+                {webhookUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      saveWebhookConfig('', '');
+                      setSheetTestState({ status: 'idle' });
+                    }}
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
+                  >
+                    Ngắt kết nối
+                  </button>
+                )}
+              </div>
+
+              {sheetTestState.message && (
+                <p
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
+                    sheetTestState.status === 'ok'
+                      ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      : sheetTestState.status === 'error'
+                        ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                        : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                >
+                  {sheetTestState.message}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Collapsible Saved Words Drawer (Sổ từ báo chí) */}
       {savedDrawerOpen && (
         <div className="rounded-2xl border border-teal-200 bg-teal-50/50 p-4 shadow-xs dark:border-teal-900/60 dark:bg-teal-950/20">
@@ -883,10 +1292,36 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                 Sổ từ báo chí ({savedWords.length} từ đã lưu)
               </h3>
               <p className="text-xs text-teal-700/80 dark:text-teal-300/80">
-                Bấm “Sao chép dán vào Sheet” rồi Ctrl+V thẳng vào Google Sheets để đồng bộ vào kho học chính.
+                {isSheetConnected
+                  ? 'Đã bật đồng bộ 1-click lên tab News Vocab trên Google Sheets.'
+                  : 'Kết nối Google Sheets để lưu thẳng 1-click, hoặc dùng nút Sao chép dán vào Sheet.'}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {isSheetConnected && unsyncedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleSyncAllLocalWords}
+                  disabled={batchSyncing}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {batchSyncing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Cloud className="h-3.5 w-3.5" />
+                  )}
+                  <span>Đẩy {unsyncedCount} từ lên Sheet</span>
+                </button>
+              )}
+              {!isSheetConnected && (
+                <button
+                  type="button"
+                  onClick={() => setSheetSetupOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-amber-600"
+                >
+                  <Settings2 className="h-3.5 w-3.5" /> Bật lưu thẳng Sheet
+                </button>
+              )}
               {savedWords.length > 0 && (
                 <button
                   type="button"
@@ -899,7 +1334,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                     </>
                   ) : (
                     <>
-                      <Copy className="h-3.5 w-3.5" /> Sao chép dán vào Sheet
+                      <Copy className="h-3.5 w-3.5" /> Sao chép TSV
                     </>
                   )}
                 </button>
@@ -917,7 +1352,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
           {savedWords.length === 0 ? (
             <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
               Chưa có từ nào được lưu. Khi đọc báo, hãy chạm vào bất kỳ từ tiếng Anh nào rồi bấm{' '}
-              <strong>+ Lưu vào Sổ từ báo chí</strong>.
+              <strong>{isSheetConnected ? '+ Lưu lên Google Sheets' : '+ Lưu vào Sổ từ báo chí'}</strong>.
             </p>
           ) : (
             <div className="mt-3 grid max-h-64 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
@@ -928,12 +1363,30 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-sm font-extrabold text-slate-900 dark:text-white">
                           {sw.word}
                         </span>
                         {sw.phonetic && (
                           <span className="text-[11px] text-slate-400">{sw.phonetic}</span>
+                        )}
+                        {sw.syncStatus === 'synced' && (
+                          <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                            Đã lên Sheet ✓
+                          </span>
+                        )}
+                        {sw.syncStatus === 'syncing' && (
+                          <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-700">
+                            Đang gửi...
+                          </span>
+                        )}
+                        {sw.syncStatus === 'error' && (
+                          <span
+                            title={sw.syncError}
+                            className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[9px] font-bold text-rose-700"
+                          >
+                            Lỗi gửi
+                          </span>
                         )}
                       </div>
                       <div className="flex items-center gap-1">
@@ -1073,11 +1526,35 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
               </button>
 
               <div className="flex flex-wrap items-center gap-1.5">
+                {isSheetConnected && (
+                  <button
+                    type="button"
+                    disabled={sendArticleState === 'sending'}
+                    onClick={() => handleSendArticleToNewsSheet(selectedLive)}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
+                    title="Gửi thẳng bài báo này vào tab News (Status = Pending) để AI phân tích sâu"
+                  >
+                    {sendArticleState === 'sending' ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : sendArticleState === 'sent' || sendArticleState === 'duplicate' ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5" />
+                    )}
+                    <span>
+                      {sendArticleState === 'sent'
+                        ? 'Đã gửi lên sheet News!'
+                        : sendArticleState === 'duplicate'
+                          ? 'Đã có trong sheet News'
+                          : 'Gửi vào sheet News'}
+                    </span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handleCopyText('article-url', selectedLive.url)}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300"
-                  title="Dán link này vào cột A sheet News để nhờ AI phân tích sâu IELTS"
+                  title="Chép đường link bài báo"
                 >
                   {copiedKey === 'article-url' ? (
                     <>
@@ -1085,7 +1562,7 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                     </>
                   ) : (
                     <>
-                      <Copy className="h-3.5 w-3.5" /> Chép link cho sheet News
+                      <Copy className="h-3.5 w-3.5" /> Chép link
                     </>
                   )}
                 </button>
@@ -1099,6 +1576,17 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                 </a>
               </div>
             </div>
+            {sendArticleMsg && (
+              <p
+                className={`mt-2 rounded-xl px-3 py-1.5 text-xs font-semibold ${
+                  sendArticleState === 'error'
+                    ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+                    : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                }`}
+              >
+                {sendArticleMsg}
+              </p>
+            )}
 
             <div className="mt-4">
               <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -1765,24 +2253,65 @@ export function NewsView({ articles, allVocab, accent }: NewsViewProps) {
                     Mở Cambridge <ExternalLink className="h-3 w-3" />
                   </a>
 
-                  <button
-                    type="button"
-                    onClick={() => handleSaveWord(currentArticleTitle)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-teal-700"
-                  >
-                    {savedWords.some(
-                      (w) => w.word.toLowerCase() === lookup.cleaned.toLowerCase()
-                    ) ? (
-                      <>
-                        <Check className="h-3.5 w-3.5" /> Đã lưu trong Sổ từ
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-3.5 w-3.5" /> Lưu vào Sổ từ báo chí
-                      </>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {!isSheetConnected && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLookup(null);
+                          setSheetSetupOpen(true);
+                        }}
+                        className="rounded-xl border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-bold text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+                      >
+                        Bật lưu thẳng Sheet
+                      </button>
                     )}
-                  </button>
+
+                    <button
+                      type="button"
+                      disabled={activeSavedEntry?.syncStatus === 'syncing'}
+                      onClick={() => handleSaveWord(currentArticleTitle, currentArticleTopic)}
+                      className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-white transition disabled:opacity-60 ${
+                        activeSavedEntry?.syncStatus === 'synced'
+                          ? 'bg-emerald-600 hover:bg-emerald-700'
+                          : activeSavedEntry?.syncStatus === 'error'
+                            ? 'bg-rose-600 hover:bg-rose-700'
+                            : 'bg-teal-600 hover:bg-teal-700'
+                      }`}
+                    >
+                      {activeSavedEntry?.syncStatus === 'syncing' ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang gửi lên Google Sheets...
+                        </>
+                      ) : activeSavedEntry?.syncStatus === 'synced' ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" /> Đã lên tab News Vocab ✓
+                        </>
+                      ) : activeSavedEntry?.syncStatus === 'error' ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5" /> Lỗi gửi — Thử lại
+                        </>
+                      ) : activeSavedEntry ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" /> Đã lưu cục bộ
+                        </>
+                      ) : isSheetConnected ? (
+                        <>
+                          <Cloud className="h-3.5 w-3.5" /> Lưu thẳng Google Sheets
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-3.5 w-3.5" /> Lưu vào Sổ từ báo chí
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
+                {activeSavedEntry?.syncStatus === 'error' && activeSavedEntry.syncError && (
+                  <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                    {activeSavedEntry.syncError}
+                  </p>
+                )}
               </div>
             )}
           </div>
