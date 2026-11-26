@@ -202,6 +202,7 @@ function findSectionTextForPart(format: IeltsTask2Format | null, partKey: string
 export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps) {
   const [topMode, setTopMode] = useState<TopMode>('prompts');
   const [promptTypeFilter, setPromptTypeFilter] = useState<string>('ALL');
+  const [promptThemeFilter, setPromptThemeFilter] = useState<string>('ALL');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState('');
   const [formatTypeFilter, setFormatTypeFilter] = useState<string>('ALL');
@@ -235,13 +236,27 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
     setTimeout(() => setCopiedKey((cur) => (cur === key ? null : cur)), 1500);
   };
 
-  // Distinct Question Types for prompts & formats
+  // Distinct Question Types & Themes for prompts
   const promptQuestionTypes = useMemo(() => {
     const map = new Map<string, number>();
     for (const p of prompts) {
       map.set(p.questionType, (map.get(p.questionType) || 0) + 1);
     }
     return Array.from(map.entries());
+  }, [prompts]);
+
+  const promptThemes = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of prompts) {
+      if (!p.theme) continue;
+      map.set(p.theme, (map.get(p.theme) || 0) + 1);
+    }
+    return Array.from(map.entries()).sort((a, b) => {
+      const na = parseInt(a[0].match(/Topic\s*(\d+)/i)?.[1] || '999', 10);
+      const nb = parseInt(b[0].match(/Topic\s*(\d+)/i)?.[1] || '999', 10);
+      if (na !== nb) return na - nb;
+      return a[0].localeCompare(b[0]);
+    });
   }, [prompts]);
 
   const formatQuestionTypes = useMemo(() => {
@@ -253,9 +268,12 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
   }, [formats]);
 
   const visiblePrompts = useMemo(() => {
-    if (promptTypeFilter === 'ALL') return prompts;
-    return prompts.filter((p) => p.questionType === promptTypeFilter);
-  }, [prompts, promptTypeFilter]);
+    return prompts.filter((p) => {
+      if (promptTypeFilter !== 'ALL' && p.questionType !== promptTypeFilter) return false;
+      if (promptThemeFilter !== 'ALL' && p.theme !== promptThemeFilter) return false;
+      return true;
+    });
+  }, [prompts, promptTypeFilter, promptThemeFilter]);
 
   const pickerFilteredPrompts = useMemo(() => {
     const pq = pickerSearch.trim().toLowerCase();
@@ -264,7 +282,8 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
       (p) =>
         p.title.toLowerCase().includes(pq) ||
         p.prompt.toLowerCase().includes(pq) ||
-        p.questionType.toLowerCase().includes(pq)
+        p.questionType.toLowerCase().includes(pq) ||
+        (p.theme || '').toLowerCase().includes(pq)
     );
   }, [visiblePrompts, pickerSearch]);
 
@@ -377,6 +396,7 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
     const matchingPrompt = prompts.find((p) => normalizeTypeKey(p.questionType) === key);
     if (matchingPrompt) {
       setPromptTypeFilter('ALL');
+      setPromptThemeFilter('ALL');
       setSelectedId(matchingPrompt.id);
     }
     setSelectedFormatId(format.id);
@@ -601,6 +621,37 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
               </div>
             )}
 
+            {promptThemes.length > 0 && (
+              <div className="no-scrollbar mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap">
+                <span className="shrink-0 text-[11px] font-bold whitespace-nowrap text-slate-500">
+                  Theme:
+                </span>
+                <button
+                  onClick={() => setPromptThemeFilter('ALL')}
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold whitespace-nowrap transition ${
+                    promptThemeFilter === 'ALL'
+                      ? 'bg-teal-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                >
+                  Tất cả
+                </button>
+                {promptThemes.map(([th, count]) => (
+                  <button
+                    key={th}
+                    onClick={() => setPromptThemeFilter(th)}
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold whitespace-nowrap transition ${
+                      promptThemeFilter === th
+                        ? 'bg-teal-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                    }`}
+                  >
+                    {th.replace(/^Topic\s*\d+:\s*/i, '')} ({count})
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Tier 3: Full-Width Active Prompt Card + Balanced Mobile Controls */}
             <div className="mt-2.5 flex flex-col gap-2 border-t border-slate-100 pt-2.5 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
               <button
@@ -620,6 +671,11 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                     >
                       {activePrompt.questionType}
                     </span>
+                    {activePrompt.theme && (
+                      <span className="truncate rounded bg-teal-100 px-1.5 py-0.5 text-[10px] font-bold text-teal-800 dark:bg-teal-950 dark:text-teal-300">
+                        {activePrompt.theme.replace(/^Topic\s*\d+:\s*/i, '')}
+                      </span>
+                    )}
                     {activePromptModelBadge && (
                       <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                         {activePromptModelBadge}
@@ -740,6 +796,11 @@ export function IeltsTask2View({ prompts, formats, accent }: IeltsTask2ViewProps
                             <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
                               Đề #{origIdx + 1}
                             </span>
+                            {p.theme && (
+                              <span className="truncate rounded bg-teal-50 px-1.5 py-0.5 text-[10px] font-bold text-teal-700 dark:bg-teal-950/70 dark:text-teal-300">
+                                {p.theme.replace(/^Topic\s*\d+:\s*/i, '')}
+                              </span>
+                            )}
                             <div className="flex items-center gap-1">
                               {p.expressions.length > 0 && (
                                 <span className="text-[10px] font-semibold text-slate-500">

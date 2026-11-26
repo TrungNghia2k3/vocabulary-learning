@@ -1059,6 +1059,7 @@ function parseIeltsWritingTask2(
   const topicCol = header.findIndex((c, idx) => idx < leftLimit && /^(topic|prompt|chủ đề)/i.test(c));
   const partCol = header.findIndex((c, idx) => idx < leftLimit && /^part$/i.test(c));
   const qTypeCol = header.findIndex((c, idx) => idx < leftLimit && /^question\s*type$/i.test(c));
+  const themeCol = header.findIndex((c, idx) => idx < leftLimit && /^theme$/i.test(c));
 
   const formatPartCol =
     formatCol >= 0 ? header.findIndex((c, idx) => idx > formatCol && /^part$/i.test(c)) : -1;
@@ -1078,6 +1079,7 @@ function parseIeltsWritingTask2(
     const topicText = topicCol >= 0 ? (r[topicCol] || '').trim() : '';
     const partText = partCol >= 0 ? (r[partCol] || '').trim() : '';
     const qTypeText = qTypeCol >= 0 ? (r[qTypeCol] || '').trim() : '';
+    const themeText = themeCol >= 0 ? (r[themeCol] || '').trim() : '';
 
     if (topicText) {
       currentPrompt = {
@@ -1085,13 +1087,19 @@ function parseIeltsWritingTask2(
         title: makeTask2Title(topicText, prompts.length + 1),
         prompt: topicText,
         questionType: qTypeText || detectTask2Type(topicText),
+        theme: themeText || undefined,
         expressions: [],
         sampleSections: [],
         sampleEssays: [],
       };
       prompts.push(currentPrompt);
-    } else if (qTypeText && currentPrompt && !currentPrompt.questionType) {
-      currentPrompt.questionType = qTypeText;
+    } else if (currentPrompt) {
+      if (qTypeText && !currentPrompt.questionType) {
+        currentPrompt.questionType = qTypeText;
+      }
+      if (themeText && !currentPrompt.theme) {
+        currentPrompt.theme = themeText;
+      }
     }
 
     if (!phrase) continue;

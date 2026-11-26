@@ -195,6 +195,7 @@ export interface IeltsTask2Prompt {
   title: string;
   prompt: string;
   questionType: string;
+  theme?: string;
   expressions: IeltsTask2Expression[];
   sampleSections: IeltsTask2Section[];
   sampleEssays: IeltsTask2EssayVariant[];
