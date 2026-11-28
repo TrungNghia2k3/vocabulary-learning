@@ -7,11 +7,13 @@ import {
   Eye,
   EyeOff,
   Keyboard,
+  Maximize2,
   RotateCcw,
   SkipForward,
   Sparkles,
   Volume2,
   VolumeX,
+  X,
 } from 'lucide-react';
 import type { Accent } from '../types';
 import { speakText } from '../utils/speech';
@@ -229,7 +231,95 @@ export function EssayTypingPractice({
   const [finishedAtMs, setFinishedAtMs] = useState<number | null>(null);
   const [justPassed, setJustPassed] = useState(false);
 
+  // Mobile Focus Mode (fixes iPhone X / iOS keyboard covering half the screen & viewport jumping)
+  const [mobileFocusEnabled, setMobileFocusEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('vocabStudio:typingMobileFocus');
+      return saved === null ? true : saved === 'true';
+    } catch {
+      return true;
+    }
+  });
+  const [mobileFocusActive, setMobileFocusActive] = useState(false);
+  const [viewportBox, setViewportBox] = useState<{ top: number; height: number } | null>(null);
+
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const targetBoxRef = useRef<HTMLDivElement | null>(null);
+  const cursorRef = useRef<HTMLSpanElement | null>(null);
+  const keepFocusRef = useRef(false);
+
+  const toggleMobileFocusEnabled = (next: boolean) => {
+    setMobileFocusEnabled(next);
+    if (!next) setMobileFocusActive(false);
+    try {
+      localStorage.setItem('vocabStudio:typingMobileFocus', String(next));
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  // Track visualViewport (exact visible area above iPhone X keyboard) while Mobile Focus Mode is open
+  useEffect(() => {
+    if (!mobileFocusActive) {
+      setViewportBox(null);
+      return;
+    }
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    let rafId: number | null = null;
+    const syncViewport = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const vv = window.visualViewport;
+        if (vv) {
+          setViewportBox({
+            top: Math.max(0, Math.round(vv.offsetTop)),
+            height: Math.max(220, Math.round(vv.height)),
+          });
+        } else {
+          setViewportBox({ top: 0, height: window.innerHeight });
+        }
+      });
+    };
+
+    syncViewport();
+    const t1 = window.setTimeout(syncViewport, 120);
+    const t2 = window.setTimeout(syncViewport, 350);
+
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', syncViewport);
+    vv?.addEventListener('scroll', syncViewport);
+    window.addEventListener('resize', syncViewport);
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      vv?.removeEventListener('resize', syncViewport);
+      vv?.removeEventListener('scroll', syncViewport);
+      window.removeEventListener('resize', syncViewport);
+    };
+  }, [mobileFocusActive]);
+
+  // Keep active character cursor centered inside the Target Sentence box (never scrolling outer window)
+  useEffect(() => {
+    if (!mobileFocusActive) return;
+    const box = targetBoxRef.current;
+    const cursor = cursorRef.current;
+    if (!box || !cursor) return;
+    const targetTop = Math.max(0, cursor.offsetTop - box.clientHeight * 0.42);
+    box.scrollTo({ top: targetTop, behavior: 'smooth' });
+  }, [mobileFocusActive, typed.length, currentIdx]);
+
+  // Close mobile overlay cleanly when all sentences finish
+  useEffect(() => {
+    if (finishedAtMs !== null && mobileFocusActive) {
+      setMobileFocusActive(false);
+      inputRef.current?.blur();
+    }
+  }, [finishedAtMs, mobileFocusActive]);
 
   // Reset cleanly whenever the sentence list (essay / format) changes
   const listKey = useMemo(() => sentences.map((s) => s.id).join('|'), [sentences]);
@@ -257,7 +347,7 @@ export function EssayTypingPractice({
 
   useEffect(() => {
     if (autoSpeak && current && !finishedAtMs) {
-      speakText(cleanTargetForTyping(current.text), accent, 0.92);
+      speakText(cleanTargetForTyping(current.text), accent, 1.0);
     }
   }, [safeIdx, autoSpeak, current?.id, accent, finishedAtMs]);
 
@@ -305,12 +395,44 @@ export function EssayTypingPractice({
   const wpm =
     sessionStartMs !== null ? Math.round((completedWords + typedWordsNow) / elapsedMinutes) : 0;
 
+  const focusInputSafely = () => {
+    try {
+      inputRef.current?.focus({ preventScroll: true });
+    } catch {
+      inputRef.current?.focus();
+    }
+  };
+
+  const enterMobileFocus = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 640) {
+      setMobileFocusActive(true);
+    }
+    focusInputSafely();
+  };
+
+  const exitMobileFocus = () => {
+    keepFocusRef.current = false;
+    setMobileFocusActive(false);
+    inputRef.current?.blur();
+  };
+
+  const keepKeyboardOnPress = (e: React.MouseEvent | React.TouchEvent) => {
+    keepFocusRef.current = true;
+    if ('button' in e) {
+      e.preventDefault();
+    }
+  };
+
   const advanceToSentence = (nextIdx: number) => {
+    keepFocusRef.current = true;
     setCurrentIdx(nextIdx);
     setTyped('');
     setPeekHidden(false);
     setJustPassed(false);
-    setTimeout(() => inputRef.current?.focus(), 30);
+    setTimeout(() => {
+      focusInputSafely();
+      keepFocusRef.current = false;
+    }, 30);
   };
 
   const completeCurrentSentence = (nextTypedVal: string) => {
@@ -410,7 +532,7 @@ export function EssayTypingPractice({
     setCompletedWords(0);
     setFinishedAtMs(null);
     setJustPassed(false);
-    setTimeout(() => inputRef.current?.focus(), 40);
+    setTimeout(() => focusInputSafely(), 40);
   };
 
   const progressPct = Math.round((completedIds.size / sentences.length) * 100);
@@ -537,6 +659,15 @@ export function EssayTypingPractice({
               />
               Tự đọc câu mới
             </label>
+            <label className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-indigo-700 sm:hidden dark:text-indigo-300">
+              <input
+                type="checkbox"
+                checked={mobileFocusEnabled}
+                onChange={(e) => toggleMobileFocusEnabled(e.target.checked)}
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Khung gõ chống nhảy (Mobile)
+            </label>
           </div>
         </div>
       </div>
@@ -581,158 +712,290 @@ export function EssayTypingPractice({
           </div>
         </div>
       ) : (
-        /* Active Sentence Typing Card */
+        /* Active Sentence Typing Card — expands into a visualViewport-pinned Focus Dock on Mobile when keyboard opens */
         <div
-          className={`rounded-2xl border p-5 shadow-xs transition ${
-            justPassed || isExactMatch
-              ? 'border-emerald-400 bg-emerald-50/40 dark:border-emerald-700 dark:bg-emerald-950/20'
-              : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
-          }`}
+          style={
+            mobileFocusActive && viewportBox
+              ? {
+                  top: `${viewportBox.top}px`,
+                  height: `${viewportBox.height}px`,
+                  paddingTop: viewportBox.top === 0 ? 'env(safe-area-inset-top)' : undefined,
+                }
+              : undefined
+          }
+          className={
+            mobileFocusActive
+              ? 'fixed inset-x-0 z-50 flex flex-col bg-white dark:bg-slate-950'
+              : `rounded-2xl border p-4 shadow-xs transition sm:p-5 ${
+                  justPassed || isExactMatch
+                    ? 'border-emerald-400 bg-emerald-50/40 dark:border-emerald-700 dark:bg-emerald-950/20'
+                    : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
+                }`
+          }
         >
           {/* Sentence Meta Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`rounded-lg px-2.5 py-0.5 text-xs font-extrabold ${getPartBadge(current.part)}`}>
+          <div
+            className={
+              mobileFocusActive
+                ? 'flex shrink-0 items-center justify-between gap-1.5 border-b border-slate-200 bg-slate-50/90 px-3 py-2 dark:border-slate-800 dark:bg-slate-900'
+                : 'flex flex-wrap items-center justify-between gap-2'
+            }
+          >
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+              <span className={`rounded-lg px-2 py-0.5 text-[11px] font-extrabold sm:px-2.5 sm:text-xs ${getPartBadge(current.part)}`}>
                 {current.part}
               </span>
-              <span className="text-xs font-bold text-slate-500">
-                Câu {safeIdx + 1} / {sentences.length}
+              <span className="text-[11px] font-bold text-slate-500 sm:text-xs">
+                {mobileFocusActive ? `${safeIdx + 1}/${sentences.length}` : `Câu ${safeIdx + 1} / ${sentences.length}`}
               </span>
-              {completedIds.has(current.id) && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                  <CheckCircle2 className="h-3 w-3" /> Đã hoàn thành
-                </span>
+              {mobileFocusActive ? (
+                liveErrors > 0 ? (
+                  <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-extrabold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                    {liveErrors} lỗi
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                    {accuracy}%
+                  </span>
+                )
+              ) : (
+                completedIds.has(current.id) && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                    <CheckCircle2 className="h-3 w-3" /> Đã hoàn thành
+                  </span>
+                )
               )}
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex shrink-0 items-center gap-1.5">
               {memoryLevel !== 'visible' && (
                 <button
                   type="button"
-                  onClick={() => setPeekHidden((p) => !p)}
-                  className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-200"
+                  onMouseDown={keepKeyboardOnPress}
+                  onTouchStart={keepKeyboardOnPress}
+                  onClick={() => {
+                    setPeekHidden((p) => !p);
+                    if (mobileFocusActive) focusInputSafely();
+                    keepFocusRef.current = false;
+                  }}
+                  className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 sm:px-2.5 sm:text-xs dark:bg-amber-950/60 dark:text-amber-200"
                 >
                   {peekHidden ? (
                     <>
-                      <EyeOff className="h-3.5 w-3.5" /> Che lại
+                      <EyeOff className="h-3.5 w-3.5" />
+                      {!mobileFocusActive && <span>Che lại</span>}
                     </>
                   ) : (
                     <>
-                      <Eye className="h-3.5 w-3.5" /> Xem gợi ý
+                      <Eye className="h-3.5 w-3.5" />
+                      {!mobileFocusActive && <span>Xem gợi ý</span>}
                     </>
                   )}
                 </button>
               )}
               <button
                 type="button"
-                onClick={() => speakText(targetClean, accent, 0.9)}
-                className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300"
+                onMouseDown={keepKeyboardOnPress}
+                onTouchStart={keepKeyboardOnPress}
+                onClick={() => {
+                  speakText(targetClean, accent, 1.0);
+                  if (mobileFocusActive) focusInputSafely();
+                  keepFocusRef.current = false;
+                }}
+                className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-2 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 sm:px-2.5 sm:text-xs dark:bg-indigo-950 dark:text-indigo-300"
+                title="Nghe câu này"
               >
-                <Volume2 className="h-3.5 w-3.5" /> Nghe câu này
+                <Volume2 className="h-3.5 w-3.5" />
+                {!mobileFocusActive && <span>Nghe câu này</span>}
               </button>
+              {!mobileFocusActive && (
+                <button
+                  type="button"
+                  onClick={enterMobileFocus}
+                  className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white sm:hidden dark:bg-indigo-600"
+                  title="Mở khung gõ tập trung toàn màn hình phía trên bàn phím"
+                >
+                  <Maximize2 className="h-3 w-3" /> Tập trung
+                </button>
+              )}
+              {mobileFocusActive && (
+                <button
+                  type="button"
+                  onClick={exitMobileFocus}
+                  className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-extrabold text-white dark:bg-slate-700"
+                >
+                  <X className="h-3.5 w-3.5" /> Xong
+                </button>
+              )}
             </div>
           </div>
 
+          {mobileFocusActive && (
+            <div className="h-1 w-full shrink-0 bg-slate-100 dark:bg-slate-800">
+              <div
+                className="h-full bg-gradient-to-r from-indigo-600 to-emerald-500 transition-all duration-300"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          )}
+
           {/* Live Character-by-Character Target Display */}
-          <div className="mt-4 rounded-xl border border-slate-200/90 bg-slate-50/90 p-4 font-mono text-[15px] leading-8 tracking-normal select-none dark:border-slate-700 dark:bg-slate-800/70">
-            {targetClean.split('').map((ch, idx) => {
-              const isTyped = idx < normalizedTyped.length;
-              const isCursor = idx === normalizedTyped.length;
-              const typedCh = normalizedTyped[idx];
-              const isCharCorrect =
-                isTyped &&
-                (ignoreCaseAndPunct
-                  ? typedCh.toLowerCase() === ch.toLowerCase()
-                  : typedCh === ch);
-
-              const isSlot = inBracket[idx];
-
-              // Determine what character to show when untyped depending on MemoryLevel
-              let displayChar = ch;
-              let masked = false;
-              if (!isTyped && !peekHidden) {
-                if (memoryLevel === 'hidden' && ch !== ' ') {
-                  displayChar = '•';
-                  masked = true;
-                } else if (
-                  memoryLevel === 'initials' &&
-                  /[A-Za-z0-9]/.test(ch) &&
-                  !wordStarts.has(idx)
-                ) {
-                  displayChar = '_';
-                  masked = true;
-                }
+          <div
+            ref={targetBoxRef}
+            onClick={() => {
+              if (mobileFocusEnabled && typeof window !== 'undefined' && window.innerWidth < 640) {
+                enterMobileFocus();
+              } else {
+                focusInputSafely();
               }
+            }}
+            className={
+              mobileFocusActive
+                ? 'relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-50/70 px-3.5 py-3 font-mono text-[15px] leading-7 tracking-normal select-none dark:bg-slate-900/70'
+                : 'relative mt-4 cursor-text rounded-xl border border-slate-200/90 bg-slate-50/90 p-4 font-mono text-[15px] leading-8 tracking-normal select-none dark:border-slate-700 dark:bg-slate-800/70'
+            }
+          >
+            <div>
+              {targetClean.split('').map((ch, idx) => {
+                const isTyped = idx < normalizedTyped.length;
+                const isCursor = idx === normalizedTyped.length;
+                const typedCh = normalizedTyped[idx];
+                const isCharCorrect =
+                  isTyped &&
+                  (ignoreCaseAndPunct
+                    ? typedCh.toLowerCase() === ch.toLowerCase()
+                    : typedCh === ch);
 
-              if (isTyped) {
+                const isSlot = inBracket[idx];
+
+                // Determine what character to show when untyped depending on MemoryLevel
+                let displayChar = ch;
+                let masked = false;
+                if (!isTyped && !peekHidden) {
+                  if (memoryLevel === 'hidden' && ch !== ' ') {
+                    displayChar = '•';
+                    masked = true;
+                  } else if (
+                    memoryLevel === 'initials' &&
+                    /[A-Za-z0-9]/.test(ch) &&
+                    !wordStarts.has(idx)
+                  ) {
+                    displayChar = '_';
+                    masked = true;
+                  }
+                }
+
+                if (isTyped) {
+                  return (
+                    <span
+                      key={idx}
+                      className={
+                        isCharCorrect
+                          ? 'font-semibold text-emerald-600 dark:text-emerald-400'
+                          : 'rounded-xs bg-rose-200 font-bold text-rose-800 underline decoration-rose-500 dark:bg-rose-900/80 dark:text-rose-200'
+                      }
+                    >
+                      {ch === ' ' && !isCharCorrect ? '␣' : ch}
+                    </span>
+                  );
+                }
+
+                if (isCursor) {
+                  return (
+                    <span
+                      key={idx}
+                      ref={cursorRef}
+                      className="rounded-xs border-b-2 border-indigo-600 bg-indigo-100 font-bold text-indigo-900 dark:border-indigo-400 dark:bg-indigo-900/70 dark:text-indigo-100"
+                    >
+                      {displayChar}
+                    </span>
+                  );
+                }
+
                 return (
                   <span
                     key={idx}
                     className={
-                      isCharCorrect
-                        ? 'font-semibold text-emerald-600 dark:text-emerald-400'
-                        : 'rounded-xs bg-rose-200 font-bold text-rose-800 underline decoration-rose-500 dark:bg-rose-900/80 dark:text-rose-200'
+                      masked
+                        ? 'text-slate-400 dark:text-slate-500'
+                        : isSlot
+                          ? 'bg-amber-100/80 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200'
+                          : 'text-slate-600 dark:text-slate-300'
                     }
-                  >
-                    {ch === ' ' && !isCharCorrect ? '␣' : ch}
-                  </span>
-                );
-              }
-
-              if (isCursor) {
-                return (
-                  <span
-                    key={idx}
-                    className="rounded-xs border-b-2 border-indigo-600 bg-indigo-100 font-bold text-indigo-900 dark:border-indigo-400 dark:bg-indigo-900/70 dark:text-indigo-100"
                   >
                     {displayChar}
                   </span>
                 );
-              }
+              })}
 
-              return (
-                <span
-                  key={idx}
-                  className={
-                    masked
-                      ? 'text-slate-400 dark:text-slate-500'
-                      : isSlot
-                        ? 'bg-amber-100/80 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200'
-                        : 'text-slate-600 dark:text-slate-300'
-                  }
-                >
-                  {displayChar}
+              {normalizedTyped.length > targetClean.length && (
+                <span className="rounded-xs bg-rose-200 font-bold text-rose-800 dark:bg-rose-900 dark:text-rose-200">
+                  {normalizedTyped.slice(targetClean.length)}
                 </span>
-              );
-            })}
+              )}
+            </div>
 
-            {normalizedTyped.length > targetClean.length && (
-              <span className="rounded-xs bg-rose-200 font-bold text-rose-800 dark:bg-rose-900 dark:text-rose-200">
-                {normalizedTyped.slice(targetClean.length)}
-              </span>
+            {mobileFocusActive && current.meaning && (
+              <p className="mt-2 border-t border-slate-200/70 pt-1.5 font-sans text-[11px] text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                Nghĩa: {current.meaning}
+              </p>
             )}
           </div>
 
-          {current.meaning && (
+          {!mobileFocusActive && current.meaning && (
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
               Nghĩa: {current.meaning}
             </p>
           )}
 
-          {/* Typing Input Box */}
-          <div className="mt-3">
+          {/* Typing Input Box — 16px on mobile prevents iOS Safari auto-zoom & jump! */}
+          <div
+            className={
+              mobileFocusActive
+                ? 'shrink-0 border-t border-slate-200 bg-white px-3 pt-2 pb-2 dark:border-slate-800 dark:bg-slate-950'
+                : 'mt-3'
+            }
+          >
             <textarea
               ref={inputRef}
-              rows={Math.max(2, Math.min(5, Math.ceil(targetClean.length / 72)))}
+              rows={
+                mobileFocusActive
+                  ? 2
+                  : Math.max(2, Math.min(5, Math.ceil(targetClean.length / 72)))
+              }
               value={typed}
+              onFocus={() => {
+                if (mobileFocusEnabled && typeof window !== 'undefined' && window.innerWidth < 640) {
+                  setMobileFocusActive(true);
+                }
+              }}
+              onBlur={() => {
+                if (!mobileFocusActive) return;
+                window.setTimeout(() => {
+                  if (keepFocusRef.current) {
+                    keepFocusRef.current = false;
+                    return;
+                  }
+                  if (document.activeElement !== inputRef.current) {
+                    setMobileFocusActive(false);
+                  }
+                }, 180);
+              }}
               onChange={(e) => handleTypingChange(e.target.value)}
               onPaste={(e) => e.preventDefault()}
               spellCheck={false}
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
-              placeholder="Gõ lại chính xác câu mẫu phía trên (đã tắt dán Copy/Paste để luyện nhớ thật)..."
-              className={`w-full rounded-xl border p-3.5 font-mono text-sm leading-relaxed outline-none transition ${
+              enterKeyHint="next"
+              placeholder={
+                mobileFocusActive
+                  ? 'Gõ lại câu mẫu phía trên...'
+                  : 'Gõ lại chính xác câu mẫu phía trên (đã tắt dán Copy/Paste để luyện nhớ thật)...'
+              }
+              className={`w-full resize-none rounded-xl border font-mono text-[16px] leading-snug outline-none transition sm:text-sm sm:leading-relaxed ${
+                mobileFocusActive ? 'px-3 py-2' : 'p-3.5'
+              } ${
                 justPassed || isExactMatch
                   ? 'border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-500/20 dark:border-emerald-400 dark:bg-emerald-950/30'
                   : liveErrors > 0
@@ -741,45 +1004,61 @@ export function EssayTypingPractice({
               }`}
             />
 
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <div>
+            <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="min-w-0 flex-1 truncate">
                 {justPassed ? (
                   <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                    ✓ Chuẩn xác! Đang chuyển sang câu tiếp theo...
+                    ✓ Chuẩn xác! Đang chuyển câu...
                   </span>
                 ) : liveErrors > 0 ? (
                   <span className="font-semibold text-rose-600 dark:text-rose-400">
-                    Có {liveErrors} ký tự chưa khớp — kiểm tra vị trí tô đỏ ở câu mẫu phía trên.
+                    {mobileFocusActive
+                      ? `${liveErrors} ký tự chưa khớp (xem màu đỏ ở trên)`
+                      : `Có ${liveErrors} ký tự chưa khớp — kiểm tra vị trí tô đỏ ở câu mẫu phía trên.`}
                   </span>
                 ) : (
                   <span className="text-slate-400">
-                    {normalizedTyped.length}/{targetClean.length} ký tự · Phần tô vàng nhẹ là phần thay ý theo đề
+                    {mobileFocusActive
+                      ? `${normalizedTyped.length}/${targetClean.length} ký tự`
+                      : `${normalizedTyped.length}/${targetClean.length} ký tự · Phần tô vàng nhẹ là phần thay ý theo đề`}
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex shrink-0 items-center gap-1.5">
                 <button
                   type="button"
+                  onMouseDown={keepKeyboardOnPress}
+                  onTouchStart={keepKeyboardOnPress}
                   onClick={() => advanceToSentence(Math.max(0, safeIdx - 1))}
                   disabled={safeIdx === 0}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300"
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 sm:px-2.5 dark:border-slate-700 dark:text-slate-300"
                 >
-                  <ChevronLeft className="h-3.5 w-3.5" /> Trước
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  {!mobileFocusActive && <span>Trước</span>}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setTyped('')}
-                  className="rounded-lg border border-slate-200 px-2.5 py-1 font-semibold text-slate-500 hover:bg-slate-50 dark:border-slate-700"
+                  onMouseDown={keepKeyboardOnPress}
+                  onTouchStart={keepKeyboardOnPress}
+                  onClick={() => {
+                    setTyped('');
+                    if (mobileFocusActive) focusInputSafely();
+                    keepFocusRef.current = false;
+                  }}
+                  className="rounded-lg border border-slate-200 px-2 py-1 font-semibold text-slate-500 hover:bg-slate-50 sm:px-2.5 dark:border-slate-700"
                 >
-                  Xóa ô gõ
+                  {mobileFocusActive ? 'Xóa' : 'Xóa ô gõ'}
                 </button>
                 <button
                   type="button"
+                  onMouseDown={keepKeyboardOnPress}
+                  onTouchStart={keepKeyboardOnPress}
                   onClick={() => advanceToSentence((safeIdx + 1) % sentences.length)}
-                  className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 font-bold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200"
+                  className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-700 hover:bg-slate-200 sm:px-2.5 dark:bg-slate-800 dark:text-slate-200"
                 >
-                  <SkipForward className="h-3.5 w-3.5" /> Câu tiếp
+                  <SkipForward className="h-3.5 w-3.5" />
+                  {!mobileFocusActive && <span>Câu tiếp</span>}
                   <ChevronRight className="h-3.5 w-3.5" />
                 </button>
               </div>
